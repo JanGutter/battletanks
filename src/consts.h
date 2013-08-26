@@ -9,6 +9,17 @@
 #define CONSTS_H_
 
 #include <stdint.h>
+#include <utility>
+#include <algorithm>
+#include <functional>
+
+using namespace std;
+
+template <class T1, class T2> struct sort_pair_second {
+	bool operator()(const pair<T1,T2>&left, const pair<T1,T2>&right) {
+		return left.second < right.second;
+	}
+};
 
 struct Move {
 	int alpha;

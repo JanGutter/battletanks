@@ -16,6 +16,7 @@
 #include "PlayoutState.h"
 #include <limits.h>
 #include <StatCounter.hpp>
+#include "MCTree.h"
 
 #define DEBUG 1
 
@@ -140,6 +141,9 @@ void NetworkCore::login() {
 	p.max_y = max_y;
 	memcpy(p.board,board,sizeof(board));
 	cout << p;*/
+	//TODO: Need to know when endgame begins!
+	state.gameover = 0;
+	state.endgame_tick = 200;
 }
 
 void NetworkCore::play()
@@ -161,6 +165,7 @@ void NetworkCore::play()
 	bool repeated_tick;
 	bool skipped_tick;
 	UtilityScores* u = new UtilityScores;
+	MCTree* mc_tree = new MCTree;
 
 	stat_getstatus.init();
 	stat_setaction.init();
@@ -271,6 +276,9 @@ void NetworkCore::play()
 				}
 
 				if (!state_synced) {
+#if DEBUG
+					cout << "Syncing tanks" << endl;
+#endif
 					for (i = 0; i < num_recv; i++) {
 						state.tank[i+player_offset] = received_tanks[i];
 					}
@@ -298,6 +306,7 @@ void NetworkCore::play()
 					}
 				}
 
+
 				num_recv = 0;
 				for (vector<ns1__bullet*>::iterator bullet_iter = (*player)->bullets.begin(); bullet_iter != (*player)->bullets.end(); ++bullet_iter) {
 					ns1__bullet& bullet = (*(*bullet_iter));
@@ -324,8 +333,14 @@ void NetworkCore::play()
 				}
 
 				if (!state_synced) {
+#if DEBUG
+					cout << "Syncinc bullets" << endl;
+#endif
 					for (i = player_offset; i < 2+player_offset; i++) {
 						//Unassociate bullets
+						state.bullet[i].o = 0;
+						state.bullet[i].x = 0;
+						state.bullet[i].y = 0;
 						state.bullet[i].id = INT_MAX;
 					}
 				}
@@ -451,8 +466,20 @@ void NetworkCore::play()
 				cout << "-=end Player=-" << endl;
 #endif
 			}
-			//TODO: check for cases when state is NOT synced!
-			state_synced = true;
+
+			if (!state_synced) {
+				pair<int,int> tank_and_id;
+				vector< pair<int,int> > tanks_and_ids(4);
+				for (i = 0; i < 4; i++) {
+					tank_and_id.first = i;
+					tank_and_id.second = state.tank[i].id;
+					tanks_and_ids[i] = tank_and_id;
+				}
+				sort(tanks_and_ids.begin(), tanks_and_ids.end(), sort_pair_second<int, int>());
+				for (i = 0; i < 4; i++) {
+					state.tank_priority[i] = tanks_and_ids[i].first;
+				}
+			}
 
 			if (getStatus_resp.return_->events) {
 #if DEBUG
@@ -515,6 +542,13 @@ void NetworkCore::play()
 				cout << "-=end Events=-" << endl;
 #endif
 			} //if events
+
+			//TODO: check for cases when state is NOT synced!
+			if (!state_synced) {
+				mc_tree->init(state);
+			}
+			state_synced = true;
+
 #if DEBUG
 			cout << "milliseconds to next tick: " << getStatus_resp.return_->millisecondsToNextTick << endl;
 #endif
@@ -567,6 +601,7 @@ void NetworkCore::play()
 				continue;
 			}
 		}
+
 		//At this point, we should be synced, settled and have a window to do work
 		int64_t window = nexttick-processing_timer.get_milliseconds()-safety_margin;
 #if DEBUG
@@ -694,4 +729,5 @@ void NetworkCore::play()
 		}
 	}
 	delete u;
+	delete mc_tree;
 }

@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 		delete netcore;
 
 	} else if (mode == MODE_BENCHMARK) {
-		int i,j;
+		int i;
 		platformstl::performance_counter utility_timer;
 		UtilityScores* u = new UtilityScores;
 		tree_size_t node_id;
@@ -69,10 +69,7 @@ int main(int argc, char** argv) {
 		node_state.endgame_tick = 200;
 		node_state.gameover = 0;
 		fin.close();
-		node_state.drawBases();
-		node_state.drawTanks();
-		node_state.drawBullets();
-		mc_tree->root_state = node_state;
+		mc_tree->init(node_state);
 
 		//cout << mc_tree->root_state;
 		cout << "Populating utility scores..." << endl;
@@ -81,6 +78,7 @@ int main(int argc, char** argv) {
 		utility_timer.stop();
 		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
 #if 0
+		int j;
 		int maxcost = 0;
 		cout << "Down:" << endl;
 		for (j = 0; j < mc_tree->root_state.max_y; j++) {
@@ -140,30 +138,13 @@ int main(int argc, char** argv) {
 		}
 		cout << endl;
 #endif
-		sfmt_t sfmt;
-		sfmt_init_gen_rand(&sfmt, (uint32_t)(time(NULL)));
-		mc_tree->tree[mc_tree->root_id].r.init();
-		mc_tree->tree[mc_tree->root_id].r.push(node_state.playout(sfmt));
-		mc_tree->tree[mc_tree->root_id].terminal = false;
-		Move zero;
-		zero.alpha = 0;
-		zero.beta = 0;
-		path.push_back(zero);
-		//no need to select when priming root
-		mc_tree->expand(mc_tree->root_id,mc_tree->root_state,path,results);
-		//only necessary to redistribute when priming root or promoting a node to root
-		mc_tree->redistribute(path);
-		//Only backprop to root!
-		path.clear();
-		mc_tree->backprop(path,results);
-
 		for (i = 0; i < 50; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
 			node_id = mc_tree->root_id;
 			mc_tree->select(path,node_id,node_state);
-			mc_tree->expand(node_id,node_state,path,results);
+			mc_tree->expand_all(node_id,node_state,path,results);
 			mc_tree->backprop(path,results);
 		}
 #if 0
@@ -175,28 +156,6 @@ int main(int argc, char** argv) {
 #endif
 		cout << "Root " << mc_tree->tree[mc_tree->root_id].r.mean() << "/" << mc_tree->tree[mc_tree->root_id].r.variance() << "/" << mc_tree->tree[mc_tree->root_id].r.count() << endl;
 
-
-		/*
-		int i;
-		sfmt_t sfmt;
-		sfmt_init_gen_rand(&sfmt, time(NULL));
-		PlayoutState initial,p;
-		ifstream fin("board1.map");
-		fin >> initial;
-		initial.endgame_tick = 200;
-		initial.gameover = 0;
-		fin.close();
-		initial.drawBases();
-		initial.drawTanks();
-		initial.drawBullets();
-		for (i = 0; i < 20000; i++) {
-			p = initial;
-
-			p.playout(sfmt);
-		}
-		//cout << "============================================" << endl;
-		//cout << p << endl;
-		 */
 		delete u;
 	}
 

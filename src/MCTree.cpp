@@ -214,7 +214,7 @@ void expand_subnodes(void* thread_param) {
 #endif
 }
 
-void MCTree::expand(tree_size_t node_id, PlayoutState& node_state, vector<Move>& path, vector<double>& results)
+void MCTree::expand_all(tree_size_t node_id, PlayoutState& node_state, vector<Move>& path, vector<double>& results)
 {
 	list<tree_size_t> new_children[36][36];
 
@@ -370,6 +370,53 @@ void MCTree::backprop(vector<Move>& path,vector<double>& result)
 	}
 }
 
+void MCTree::init(PlayoutState& reference_state)
+{
+	vector<Move> path;
+	vector<double> results;
+	sfmt_t sfmt;
+	Move zero;
+	PlayoutState tmp_playout;
+	unsigned int i,j;
+
+	unallocated.clear();
+	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
+	for (i = 2; i < tree_size; i++) {
+		unallocated.push_back(i);
+	}
+	memset(allocated_count,0,sizeof(allocated_count));
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			allocated[i][j].clear();
+		}
+	}
+
+	root_id = 1;
+	allocated_to_root.push_back(root_id);
+	memcpy(&root_state,&reference_state,sizeof(root_state));
+
+	root_state = reference_state;
+	root_state.drawBases();
+	root_state.drawTanks();
+	root_state.drawBullets();
+	memcpy(&tmp_playout,&root_state,sizeof(tmp_playout));
+	sfmt_init_gen_rand(&sfmt, (uint32_t)(time(NULL)));
+	tree[root_id].r.init();
+	tree[root_id].r.push(tmp_playout.playout(sfmt));
+	tree[root_id].terminal = false;
+	zero.alpha = 0;
+	zero.beta = 0;
+	path.push_back(zero);
+	//no need to select when priming root
+	expand_all(root_id,root_state,path,results);
+	//only necessary to redistribute when priming root or promoting a node to root
+	redistribute(path);
+	//Only backprop to root!
+	path.clear();
+	backprop(path,results);
+
+}
+
 MCTree::MCTree()
 {
 	tree_size_t i;
@@ -386,7 +433,6 @@ MCTree::MCTree()
 
 	root_id = 1;
 	allocated_to_root.push_back(root_id);
-
 	num_workers = min(tthread::thread::hardware_concurrency(),MAXTHREADS);
 	workers_keepalive = true;
 	srand((unsigned int)(time(NULL)));

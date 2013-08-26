@@ -20,13 +20,6 @@
 
 using namespace std;
 
-template <class T1, class T2>
-struct sort_pair_second {
-	bool operator()(const pair<T1,T2>&left, const pair<T1,T2>&right) {
-		return left.second < right.second;
-	}
-};
-
 void PlayoutState::drawTanks()
 {
 	int t;

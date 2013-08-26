@@ -68,10 +68,11 @@ public:
 	list <tree_size_t> allocated[36][36];
 	tree_size_t allocated_count[36][36]; //Workaround for O(n) complexity list.size()
 	list <tree_size_t> allocated_to_root;
+	void init(PlayoutState& reference_state);
 	void select(vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
 	void redistribute(vector<Move>& path);
 	void backprop(vector<Move>& path, vector<double>& result);
-	void expand(tree_size_t node_id, PlayoutState& node_state, vector<Move>& path, vector<double>& results);
+	void expand_all(tree_size_t node_id, PlayoutState& node_state, vector<Move>& path, vector<double>& results);
 	MCTree();
 	virtual ~MCTree();
 };

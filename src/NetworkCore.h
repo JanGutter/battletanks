@@ -13,6 +13,9 @@
 #include "consts.h"
 #include "PlayoutState.h"
 #include <string>
+#include <utility>
+#include <algorithm>
+#include <functional>
 
 using namespace std;
 
