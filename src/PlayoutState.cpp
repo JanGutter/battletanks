@@ -139,15 +139,15 @@ void PlayoutState::moveTanks()
 		t = tank_priority[i];
 		c = command[t];
 		if (tank[t].active && C_ISMOVE(c)) {
-			tank[t].o = c;
+			tank[t].o = C_TO_O(c);
 			clear = true;
 			base = false;
-			j = 0;
 			x = tank[t].x;
 			y = tank[t].y;
 			newx = x + C_M_LOOKUP(c,C_X);
 			newy = y + C_M_LOOKUP(c,C_Y);
 			if (isTankInsideBounds(newx,newy)) {
+				j = 0;
 				while (j < 5) {
 					square = board[x+BUMP_LOOKUP(c,j,C_X)][y+BUMP_LOOKUP(c,j,C_Y)];
 					clear = clear && B_ISCLEAR(square);
@@ -470,7 +470,7 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 		x = t.x + FIRE_LOOKUP(t.o,O_X);
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
-		i = 0;
+		i = 1;
 		while (insideBounds(x,y) && !onTarget(tank_id,x,y)) {
 			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
 			i++;

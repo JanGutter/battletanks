@@ -545,7 +545,8 @@ void NetworkCore::play()
 
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
-				mc_tree->init(state);
+				state.populateUtilityScores(*u);
+				mc_tree->init(state,*u);
 			}
 			state_synced = true;
 

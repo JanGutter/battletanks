@@ -25,6 +25,8 @@ class Node;
 
 const unsigned int MAXTHREADS = 8;
 #define SUBNODE_COUNT (36*36)
+#define THREADID_UNEXPLORED 0
+#define THREADID_PRUNED 1
 
 class MCTree;
 
@@ -68,11 +70,12 @@ public:
 	list <tree_size_t> allocated[36][36];
 	tree_size_t allocated_count[36][36]; //Workaround for O(n) complexity list.size()
 	list <tree_size_t> allocated_to_root;
-	void init(PlayoutState& reference_state);
-	void select(vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
+	void init(PlayoutState& reference_state,UtilityScores& reference_u);
+	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
 	void redistribute(vector<Move>& path);
 	void backprop(vector<Move>& path, vector<double>& result);
-	void expand_all(tree_size_t node_id, PlayoutState& node_state, vector<Move>& path, vector<double>& results);
+	void expand_all(tree_size_t node_id, PlayoutState& node_state, UtilityScores& u, vector<Move>& path, vector<double>& results);
+	void expand_some(unsigned char width, tree_size_t node_id, PlayoutState& node_state, UtilityScores& u, vector<Move>& path, vector<double>& results);
 	MCTree();
 	virtual ~MCTree();
 };
@@ -81,7 +84,10 @@ class Node {
 public:
 	StatCounter r;
 	bool terminal;
+	//THE FOLLOWING ELEMENTS ARE INVALID IF r.count() == 0
 	tree_size_t child[36][36];
+	unsigned char cmd_order[4][6];
+	unsigned char explored_at;
 	int alpha(MCTree& tree);
 	int beta(MCTree& tree);
 };

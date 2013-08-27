@@ -24,6 +24,8 @@
 #include <platformstl/performance/performance_counter.hpp>
 
 using namespace std;
+#define BENCHMARK 0
+
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
 
@@ -56,8 +58,21 @@ int main(int argc, char** argv) {
 		delete netcore;
 
 	} else if (mode == MODE_BENCHMARK) {
-		int i;
+		int i,width;
+#if BENCHMARK
 		platformstl::performance_counter utility_timer;
+		platformstl::performance_counter select_timer;
+		platformstl::performance_counter backprop_timer;
+		platformstl::performance_counter expand_timer;
+		StatCounter select_stat;
+		StatCounter utility_stat;
+		StatCounter backprop_stat;
+		StatCounter expand_stat;
+		select_stat.init();
+		utility_stat.init();
+		backprop_stat.init();
+		expand_stat.init();
+#endif
 		UtilityScores* u = new UtilityScores;
 		tree_size_t node_id;
 		PlayoutState node_state;
@@ -69,83 +84,59 @@ int main(int argc, char** argv) {
 		node_state.endgame_tick = 200;
 		node_state.gameover = 0;
 		fin.close();
-		mc_tree->init(node_state);
-
-		//cout << mc_tree->root_state;
+#if BENCHMARK
 		cout << "Populating utility scores..." << endl;
 		utility_timer.restart();
-		mc_tree->root_state.populateUtilityScores(*u);
-		utility_timer.stop();
-		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
-#if 0
-		int j;
-		int maxcost = 0;
-		cout << "Down:" << endl;
-		for (j = 0; j < mc_tree->root_state.max_y; j++) {
-			for (i = 0; i < mc_tree->root_state.max_x; i++) {
-				if (u->cost[0][i][j][O_DOWN] < INT_MAX) {
-					maxcost = max(maxcost,u->cost[0][i][j][O_DOWN]);
-				}
-			}
-		}
-
-		for (j = 0; j < mc_tree->root_state.max_y; j++) {
-			for (i = 0; i < mc_tree->root_state.max_x; i++) {
-				if (u->cost[0][i][j][O_DOWN] < INT_MAX) {
-					if (u->cost[0][i][j][O_DOWN] == 0) {
-						cout << "*";
-					} else {
-						cout << ((u->cost[0][i][j][O_DOWN]-1)*10/maxcost);
-					}
-				} else {
-					if (mc_tree->root_state.board[i][j] & B_WALL) {
-						cout << "#";
-					} else {
-						cout << " ";
-					}
-				}
-			}
-			cout << endl;
-		}
-		cout << endl;
-
-		cout << "Left:" <<endl;
-		for (j = 0; j < mc_tree->root_state.max_y; j++) {
-			for (i = 0; i < mc_tree->root_state.max_x; i++) {
-				if (u->cost[0][i][j][O_LEFT] < INT_MAX) {
-					maxcost = max(maxcost,u->cost[0][i][j][O_LEFT]);
-				}
-			}
-		}
-
-		for (j = 0; j < mc_tree->root_state.max_y; j++) {
-			for (i = 0; i < mc_tree->root_state.max_x; i++) {
-				if (u->cost[0][i][j][O_LEFT] < INT_MAX) {
-					if (u->cost[0][i][j][O_LEFT] == 0) {
-						cout << "*";
-					} else {
-						cout << ((u->cost[0][i][j][O_LEFT]-1)*10/maxcost);
-					}
-				} else {
-					if (mc_tree->root_state.board[i][j] & B_WALL) {
-						cout << "#";
-					} else {
-						cout << " ";
-					}
-				}
-			}
-			cout << endl;
-		}
-		cout << endl;
 #endif
-		for (i = 0; i < 50; i++) {
+		node_state.populateUtilityScores(*u);
+#if BENCHMARK
+		utility_timer.stop();
+		utility_stat.push((double)utility_timer.get_milliseconds());
+		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
+#endif
+		mc_tree->init(node_state,*u);
+		//cout << mc_tree->root_state;
+		width = 2;
+		cout << "width: " << width << endl;
+		for (i = 0; i < 500; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
 			node_id = mc_tree->root_id;
-			mc_tree->select(path,node_id,node_state);
-			mc_tree->expand_all(node_id,node_state,path,results);
+#if BENCHMARK
+			cout << ">Select ";
+			select_timer.restart();
+#endif
+			mc_tree->select(width,path,node_id,node_state);
+#if BENCHMARK
+			select_timer.stop();
+			select_stat.push((double)select_timer.get_milliseconds());
+			cout << "mean: " << select_stat.mean() << " ms" << endl;
+			cout << ">Populate ";
+			utility_timer.restart();
+#endif
+			node_state.populateUtilityScores(*u);
+#if BENCHMARK
+			utility_timer.stop();
+			utility_stat.push((double)utility_timer.get_milliseconds());
+			cout << "mean: " << utility_stat.mean() << " ms" << endl;
+			cout << ">Expand ";
+			expand_timer.restart();
+#endif
+			mc_tree->expand_some(width,node_id,node_state,*u,path,results);
+#if BENCHMARK
+			expand_timer.stop();
+			expand_stat.push((double)expand_timer.get_milliseconds());
+			cout << "mean: " << expand_stat.mean() << " ms" << endl;
+			cout << ">Backprop ";
+			backprop_timer.restart();
+#endif
 			mc_tree->backprop(path,results);
+#if BENCHMARK
+			backprop_timer.stop();
+			backprop_stat.push((double)backprop_timer.get_milliseconds());
+			cout << "mean: " << backprop_stat.mean() << " ms" << endl;
+#endif
 		}
 #if 0
 		for (i = 0; i < 36; i++) {
