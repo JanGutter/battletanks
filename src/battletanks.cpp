@@ -24,7 +24,7 @@
 #include <platformstl/performance/performance_counter.hpp>
 
 using namespace std;
-#define BENCHMARK 0
+#define BENCHMARK 1
 
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
@@ -96,9 +96,9 @@ int main(int argc, char** argv) {
 #endif
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 2;
+		width = 3;
 		cout << "width: " << width << endl;
-		for (i = 0; i < 500; i++) {
+		for (i = 0; i < 300; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
 			select_timer.stop();
 			select_stat.push((double)select_timer.get_milliseconds());
 			cout << "mean: " << select_stat.mean() << " ms" << endl;
-			cout << ">Populate ";
+/*			cout << ">Populate ";
 			utility_timer.restart();
 #endif
 			node_state.populateUtilityScores(*u);
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 			utility_timer.stop();
 			utility_stat.push((double)utility_timer.get_milliseconds());
 			cout << "mean: " << utility_stat.mean() << " ms" << endl;
-			cout << ">Expand ";
+*/			cout << ">Expand ";
 			expand_timer.restart();
 #endif
 			mc_tree->expand_some(width,node_id,node_state,*u,path,results);

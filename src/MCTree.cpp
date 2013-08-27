@@ -329,6 +329,9 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	}
 	finished_mutex.unlock();
 
+	int& root_alpha = path[0].alpha;
+	int& root_beta = path[0].beta;
+
 	for (i = 0; i < num_workers; i++) {
 		expand_workqueue_t* workqueue = expand_workqueue[i];
 		while (workqueue->child_ptr) {
@@ -336,23 +339,24 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 				//the worker returned a valid move and leads to a new leaf
 				//the node is now allocated to the first alpha/beta move
 				//in the chain.
-				allocated[path[0].alpha][path[0].beta].splice(
-						allocated[path[0].alpha][path[0].beta].begin(),
+				allocated[root_alpha][root_beta].splice(
+						allocated[root_alpha][root_beta].begin(),
 						new_children[workqueue->alpha][workqueue->beta],
 						new_children[workqueue->alpha][workqueue->beta].begin());
 				unallocated_count--;
-				allocated_count[path[0].alpha][path[0].beta]++;
+				allocated_count[root_alpha][root_beta]++;
 				//store results for backprop
 				results.push_back(tree[*(workqueue->child_ptr)].r.mean());
 			} else {
-				//[i][j] is invalid, send the node back to unallocated
-				unallocated.splice(unallocated.begin(),new_children[workqueue->alpha][workqueue->beta],new_children[workqueue->alpha][workqueue->beta].begin());
+				//worker returned pruned move, send the node back to unallocated
+				unallocated.splice(unallocated.begin(),
+						new_children[workqueue->alpha][workqueue->beta],
+						new_children[workqueue->alpha][workqueue->beta].begin());
 			}
 			workqueue++;
 		}
 	}
 }
-
 
 void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state)
 {
@@ -366,7 +370,7 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 #if DEBUG
 		cout << "UCB1Tuned returned alpha:" << m.alpha << " beta:" << m.beta << endl;
 #endif
-		if (m.alpha != -1 && m.beta != -1 && tree[node_id].child[m.alpha][m.beta]) {
+		if (m.alpha != -1 && m.beta != -1 && child_explored(tree[node_id].child[m.alpha][m.beta])) {
 			path.push_back(m);
 			node_id = tree[node_id].child[m.alpha][m.beta];
 			node_state.move(m);
@@ -480,7 +484,7 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	path.push_back(zero);
 	tree[root_id].explored_at = 0;
 	//no need to select when priming root
-	expand_some(2,root_id,root_state,reference_u,path,results);
+	expand_all(root_id,root_state,reference_u,path,results);
 	//only necessary to redistribute when priming root or promoting a node to root
 	redistribute(path);
 	//Only backprop to root!
