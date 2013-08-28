@@ -25,6 +25,8 @@ class Node;
 
 const unsigned int MAXTHREADS = 8;
 #define SUBNODE_COUNT (36*36)
+#define TASK_RING_SIZE (2048)
+#define RESULT_RING_SIZE (2048)
 #define THREADID_UNEXPLORED 0
 #define THREADID_PRUNED 1
 
@@ -35,9 +37,14 @@ struct expand_thread_param_t {
 	unsigned int threadid;
 };
 
-struct expand_workqueue_t {
+struct expand_task_t {
 	tree_size_t* child_ptr;
 	PlayoutState* parent_state;
+	int alpha;
+	int beta;
+};
+
+struct expand_result_t {
 	int alpha;
 	int beta;
 };
@@ -51,15 +58,23 @@ public:
 
 	unsigned int num_workers;
 
-	tthread::mutex workqueue_mutex;
-	tthread::condition_variable start_workers;
-	vector<bool> work_available;
-	bool workers_keepalive;
-	vector<expand_workqueue_t*> expand_workqueue;
+	tthread::mutex task_mutex;
+	tthread::condition_variable tasks_available;
+	expand_task_t tasks[TASK_RING_SIZE];
+	unsigned int task_first;
+	unsigned int task_last;
 
-	tthread::mutex finished_mutex;
-	tthread::condition_variable finished_workers;
-	int workers_busy;
+	bool workers_keepalive;
+	int workers_running;
+	tthread::condition_variable workers_finished;
+	int workers_awake;
+	tthread::condition_variable workers_quit;
+
+	tthread::mutex task_result_mutex;
+	tthread::condition_variable results_available;
+	expand_result_t task_results[RESULT_RING_SIZE];
+	unsigned int task_result_first;
+	unsigned int task_result_last;
 
 	vector<PlayoutState> child_state;
 	vector<sfmt_t> worker_sfmt;
@@ -70,6 +85,10 @@ public:
 	list <tree_size_t> allocated[36][36];
 	tree_size_t allocated_count[36][36]; //Workaround for O(n) complexity list.size()
 	list <tree_size_t> allocated_to_root;
+	unsigned int num_results();
+	void handle_task(int taskid, int threadid);
+	void post_result(int alpha, int beta);
+	bool tasks_empty();
 	void init(PlayoutState& reference_state,UtilityScores& reference_u);
 	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
 	void redistribute(vector<Move>& path);

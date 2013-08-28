@@ -96,9 +96,9 @@ int main(int argc, char** argv) {
 #endif
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 3;
+		width = 6;
 		cout << "width: " << width << endl;
-		for (i = 0; i < 380; i++) {
+		for (i = 0; i < 33; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;

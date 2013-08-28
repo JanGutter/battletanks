@@ -17,6 +17,7 @@
 #include <functional>
 
 #define DEBUG 0
+#define ASSERT 1
 
 inline double UCB1T_score_alpha(unsigned long int t_, double r_, double sigma_, double t)
 {
@@ -135,134 +136,138 @@ inline int Node::beta(MCTree& tree)
 	return bestmove;
 }
 
+inline void MCTree::handle_task(int taskid, int threadid) {
+	expand_task_t* task = tasks+taskid;
+	int command[4];
+	int i;
+#if DEBUG > 2
+	cout << "Task started on node [" << *task->child_ptr << "] by thread " << threadid << endl;
+#endif
+	command[0] = C_T0(task->alpha,task->beta);
+	command[1] = C_T1(task->alpha,task->beta);
+	command[2] = C_T2(task->alpha,task->beta);
+	command[3] = C_T3(task->alpha,task->beta);
+	for (i = 0; i < 4; i++) {
+		//Prune illegal move
+		if (!task->parent_state->tank[i].active && command[i] != C_NONE) {
+			(*task->child_ptr) = THREADID_PRUNED;
+			break;
+		}
+		//Prune unnecessary move
+		if (task->parent_state->bullet[i].active && command[i] == C_FIRE) {
+			(*task->child_ptr) = THREADID_PRUNED;
+			break;
+		}
+	}
+
+#if ASSERT
+	if (*task->child_ptr == 0) {
+		cout << "Something's wrong, child_ptr should never be 0!" << endl;
+	}
+#endif
+	if (child_legalmove(*task->child_ptr)) {
+		memcpy(&child_state[threadid],task->parent_state,sizeof(PlayoutState));
+		memcpy(child_state[threadid].command,command,sizeof(command));
+		child_state[threadid].simulateTick();
+		if (child_state[threadid].gameover) {
+			tree[*task->child_ptr].terminal = true;
+		} else {
+			tree[*task->child_ptr].terminal = false;
+			child_state[threadid].playout(worker_sfmt[threadid]);
+		}
+		tree[*task->child_ptr].expanded_to = 0;
+		tree[*task->child_ptr].r.init();
+		tree[*task->child_ptr].r.push(child_state[threadid].winner);
+#if DEBUG > 2
+		cout << "Node [" << *task->child_ptr << "] result: " << tree[*task->child_ptr].r.mean() << endl;
+	} else {
+		cout << "Pruned move..." << endl;
+#endif
+	}
+}
+
+inline bool MCTree::tasks_empty()
+{
+	return (task_first == task_last);
+}
+
+inline void MCTree::post_result(int alpha, int beta)
+{
+	task_result_mutex.lock();
+	task_results[task_result_last].alpha = alpha;
+	task_results[task_result_last].beta = beta;
+	task_result_last = (task_result_last + 1) % RESULT_RING_SIZE;
+	task_result_mutex.unlock();
+}
+
+inline unsigned int MCTree::num_results()
+{
+	return ((RESULT_RING_SIZE+task_result_last-task_result_first)%RESULT_RING_SIZE);
+}
+
 void expand_subnodes(void* thread_param) {
 	expand_thread_param_t* parameters = static_cast<expand_thread_param_t*>(thread_param);
 	MCTree* mc_tree = parameters->mc_tree;
 	unsigned int threadid = parameters->threadid;
 	delete parameters;
-
-	int command[4];
-	int i;
+	unsigned int taskid;
 #if DEBUG
 	cout << "Thread (" << threadid << ") starting up" << endl;
 #endif
-	mc_tree->workqueue_mutex.lock();
+	mc_tree->task_mutex.lock();
+	mc_tree->workers_running++;
 	bool running = mc_tree->workers_keepalive;
+	mc_tree->workers_awake++;
 	while (running) {
-		if (!mc_tree->work_available[threadid]) {
+		if (mc_tree->tasks_empty()) {
 #if DEBUG > 1
 			cout << "Thread (" << threadid << ") going to sleep" << endl;
 #endif
-			mc_tree->start_workers.wait(mc_tree->workqueue_mutex);
+			mc_tree->workers_awake--;
+			if (!mc_tree->workers_awake) {
+				mc_tree->workers_finished.notify_one();
+			}
+			mc_tree->tasks_available.wait(mc_tree->task_mutex);
+			mc_tree->workers_awake++;
+			running = mc_tree->workers_keepalive;
 #if DEBUG > 1
 			cout << "Thread (" << threadid << ") waking up" << endl;
-#endif
 		} else {
-#if DEBUG > 1
-			cout << "Thread (" << threadid << ") work already in queue" << endl;
+			cout << "Thread (" << threadid << ") work in queue" << endl;
 #endif
 		}
-		if (mc_tree->work_available[threadid]) {
-			mc_tree->work_available[threadid] = false;
+		while (!mc_tree->tasks_empty()) {
+			//Claim next task in queue
+			taskid = mc_tree->task_first;
+			mc_tree->task_first = (mc_tree->task_first + 1) % TASK_RING_SIZE;
+			mc_tree->task_mutex.unlock();
 #if DEBUG > 1
-			cout << "Thread (" << threadid << ") starting work" << endl;
+			cout << "Thread (" << threadid << ") starting work on task " << taskid << endl;
 #endif
-			running = mc_tree->workers_keepalive;
-			mc_tree->workqueue_mutex.unlock();
 			if (!running) {
 #if DEBUG > 1
 				cout << "Thread (" << threadid << ") there's work, but no more keepalive" << endl;
 #endif
 				break;
 			}
-			expand_workqueue_t* workqueue = mc_tree->expand_workqueue[threadid];
-			while (workqueue->child_ptr) {
-				command[0] = C_T0(workqueue->alpha,workqueue->beta);
-				command[1] = C_T1(workqueue->alpha,workqueue->beta);
-				command[2] = C_T2(workqueue->alpha,workqueue->beta);
-				command[3] = C_T3(workqueue->alpha,workqueue->beta);
-#if DEBUG > 2
-				cout << "Thread (" << threadid << ") getting work unit ["
-						<< command[0] << "]["
-						<< command[1] << "]["
-						<< command[2] << "]["
-						<< command[3] << "] ";
-#endif
-				for (i = 0; i < 4; i++) {
-					//Prune illegal move
-					if (!workqueue->parent_state->tank[i].active && command[i] != C_NONE) {
-						(*workqueue->child_ptr) = THREADID_PRUNED;
-#if DEBUG > 2
-						cout << "illegal" << endl;
-#endif
-						break;
-					}
-					//Prune unnecessary move
-					if (workqueue->parent_state->bullet[i].active && command[i] == C_FIRE) {
-						(*workqueue->child_ptr) = THREADID_PRUNED;
-#if DEBUG > 2
-						cout << "redundant" << endl;
-#endif
-						break;
-					}
-				}
-#if DEBUG > 2
-				cout << endl;
-#endif
-#define ASSERT 1
-#if ASSERT
-				if (*workqueue->child_ptr == 0) {
-					cout << "Something's wrong, child_ptr should never be 0!" << endl;
-				}
-#endif
-				if (child_legalmove(*workqueue->child_ptr)) {
-					memcpy(&mc_tree->child_state[threadid],workqueue->parent_state,sizeof(PlayoutState));
-					memcpy(mc_tree->child_state[threadid].command,command,sizeof(command));
-					mc_tree->child_state[threadid].simulateTick();
-					if (mc_tree->child_state[threadid].gameover) {
-						mc_tree->tree[*workqueue->child_ptr].terminal = true;
-					} else {
-						mc_tree->tree[*workqueue->child_ptr].terminal = false;
-						mc_tree->child_state[threadid].playout(mc_tree->worker_sfmt[threadid]);
-					}
-					mc_tree->tree[*workqueue->child_ptr].expanded_to = 0;
-					mc_tree->tree[*workqueue->child_ptr].r.init();
-					mc_tree->tree[*workqueue->child_ptr].r.push(mc_tree->child_state[threadid].winner);
-#if DEBUG > 2
-					cout << "Thread (" << threadid << ") result: " << mc_tree->tree[*workqueue->child_ptr].r.mean() << " on node " << *workqueue->child_ptr << endl;
-				} else {
-					cout << "Thread (" << threadid << ") child_ptr == NULL" << endl;
-#endif
-				}
-				workqueue++;
-			}
-			mc_tree->finished_mutex.lock();
-			mc_tree->workers_busy--;
-			if (!mc_tree->workers_busy) {
-				mc_tree->finished_workers.notify_one();
-			}
-			mc_tree->finished_mutex.unlock();
-
-			mc_tree->workqueue_mutex.lock();
-			running = mc_tree->workers_keepalive;
-#if DEBUG > 1
-			cout << "Thread (" << threadid << ") work completed" << endl;
-#endif
-		} else {
-#if DEBUG > 1
-			cout << "Thread (" << threadid << ") woke up with no work!" << endl;
-#endif
+			mc_tree->handle_task(taskid,threadid);
+			mc_tree->post_result(mc_tree->tasks[taskid].alpha,mc_tree->tasks[taskid].beta);
+			mc_tree->task_mutex.lock();
 			running = mc_tree->workers_keepalive;
 		}
+#if DEBUG > 1
+		cout << "Thread (" << threadid << ") no tasks left" << endl;
+#endif
 	}
-	mc_tree->workqueue_mutex.unlock();
-
-	mc_tree->finished_mutex.lock();
-	mc_tree->workers_busy--;
-	if (!mc_tree->workers_busy) {
-		mc_tree->finished_workers.notify_one();
+	mc_tree->workers_awake--;
+	mc_tree->workers_running--;
+	if (!mc_tree->workers_running) {
+#if DEBUG
+		cout << "Thread (" << threadid << ") turning off the lights..." << endl;
+#endif
+		mc_tree->workers_quit.notify_one();
 	}
-	mc_tree->finished_mutex.unlock();
+	mc_tree->task_mutex.unlock();
 #if DEBUG
 	cout << "Thread (" << threadid << ") exiting" << endl;
 #endif
@@ -277,7 +282,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 {
 	list<tree_size_t> new_children[36][36];
 
-	unsigned int i,j,paramno,threadno;
+	unsigned int i,j;
 	unsigned int t0,t1,t2,t3;
 
 	if (unallocated_count < 36*36) {
@@ -314,8 +319,8 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		}
 	}
 
-	threadno = 0;
-	paramno = 0;
+	unsigned int count_tasks = 0;
+	task_mutex.lock();
 	for (t1 = 0; t1 < width; t1++) {
 		for (t0 = 0; t0 < width; t0++) {
 			for (t3 = 0; t3 < width; t3++) {
@@ -325,71 +330,63 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 					if (child_unexplored(tree[node_id].child[i][j])) {
 						new_children[i][j].splice(new_children[i][j].begin(),unallocated,unallocated.begin());
 						tree[node_id].child[i][j] = new_children[i][j].front();
-						expand_workqueue[threadno][paramno].child_ptr = &tree[node_id].child[i][j];
-						expand_workqueue[threadno][paramno].alpha = i;
-						expand_workqueue[threadno][paramno].beta = j;
-						expand_workqueue[threadno][paramno].parent_state = &node_state;
-						paramno += (threadno + 1) / num_workers;
-						threadno = (threadno + 1) % num_workers;
+						tasks[task_last].child_ptr = &tree[node_id].child[i][j];
+						tasks[task_last].alpha = i;
+						tasks[task_last].beta = j;
+						tasks[task_last].parent_state = &node_state;
+						task_last = (task_last + 1) % TASK_RING_SIZE;
+						count_tasks++;
 					}
 				}
 			}
 		}
 	}
-
-	for (i = 0; i < num_workers;i++) {
-		expand_workqueue[threadno][paramno].child_ptr = NULL;
-		paramno += (threadno + 1) / num_workers;
-		threadno = (threadno + 1) % num_workers;
+	task_mutex.unlock();
+	if (count_tasks < 20) {
+		while (task_first != task_last) {
+			handle_task(task_first,0);
+			post_result(tasks[task_first].alpha,tasks[task_first].beta);
+			task_first = (task_first + 1) % TASK_RING_SIZE;
+		}
+	} else {
+		tasks_available.notify_all();
+		task_result_mutex.lock();
+		while (num_results() != count_tasks) {
+			workers_finished.wait(task_result_mutex);
+		}
+		task_result_mutex.unlock();
 	}
-#if DEBUG
-	cout << "Waiting for workqueue mutex" << endl;
-#endif
-	workqueue_mutex.lock();
-#if DEBUG
-	cout << "Got workqueue mutex" << endl;
-#endif
-	for (i = 0; i < num_workers;i++) {
-		work_available[i] = true;
-	}
-	workers_busy = num_workers;
-	workqueue_mutex.unlock();
-	start_workers.notify_all();
-
-	finished_mutex.lock();
-	while (workers_busy) {
-		finished_workers.wait(finished_mutex);
-	}
-	finished_mutex.unlock();
 
 	int& root_alpha = path[0].alpha;
 	int& root_beta = path[0].beta;
 
-	for (i = 0; i < num_workers; i++) {
-		expand_workqueue_t* workqueue = expand_workqueue[i];
-		while (workqueue->child_ptr) {
-			if (child_legalmove(*(workqueue->child_ptr))) {
-				//the worker returned a valid move and leads to a new leaf
-				//the node is now allocated to the first alpha/beta move
-				//in the chain.
-				allocated[root_alpha][root_beta].splice(
-						allocated[root_alpha][root_beta].begin(),
-						new_children[workqueue->alpha][workqueue->beta],
-						new_children[workqueue->alpha][workqueue->beta].begin());
-				unallocated_count--;
-				allocated_count[root_alpha][root_beta]++;
-				//store results for backprop
-				results.push_back(tree[*(workqueue->child_ptr)].r.mean());
-			} else {
-				//worker returned pruned move, send the node back to unallocated
-				unallocated.splice(unallocated.begin(),
-						new_children[workqueue->alpha][workqueue->beta],
-						new_children[workqueue->alpha][workqueue->beta].begin());
-			}
-			workqueue++;
+	int count_results = 0;
+	task_result_mutex.lock();
+	while (task_result_first != task_result_last) {
+		count_results++;
+		expand_result_t& r = task_results[task_result_first];
+		tree_size_t& child = tree[node_id].child[r.alpha][r.beta];
+		if (child_legalmove(child)) {
+			//the task returned a valid move and leads to a new leaf
+			//the node is now allocated to the first alpha/beta move
+			//in the chain.
+			allocated[root_alpha][root_beta].splice(
+					allocated[root_alpha][root_beta].begin(),
+					new_children[r.alpha][r.beta],
+					new_children[r.alpha][r.beta].begin());
+			unallocated_count--;
+			allocated_count[root_alpha][root_beta]++;
+			//store results for backprop
+			results.push_back(tree[child].r.mean());
+		} else {
+			//worker returned pruned move, send the node back to unallocated
+			unallocated.splice(unallocated.begin(),
+					new_children[r.alpha][r.beta],
+					new_children[r.alpha][r.beta].begin());
 		}
+		task_result_first = (task_result_first + 1) % RESULT_RING_SIZE;
 	}
-
+	task_result_mutex.unlock();
 	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
 #if DEBUG
 	cout << "[" << node_id << "] expanded to: " << (int)tree[node_id].expanded_to << endl;
@@ -552,8 +549,13 @@ MCTree::MCTree()
 	srand((unsigned int)(time(NULL)));
 	//workqueue_mutex.lock();
 	child_state.resize(num_workers);
-	workers_busy = 0;
-	work_available.resize(num_workers,false);
+	workers_awake = 0;
+	task_first = 0;
+	task_last = 0;
+	task_result_first = 0;
+	task_result_last = 0;
+	workers_running = 0;
+	workers_awake = 0;
 	//workqueue_mutex.unlock();
 	for (i = 0; i < num_workers; i++) {
 		expand_thread_param_t* expand_param = new expand_thread_param_t;
@@ -562,7 +564,6 @@ MCTree::MCTree()
 		sfmt_t sfmt;
 		sfmt_init_gen_rand(&sfmt, rand());
 		worker_sfmt.push_back(sfmt);
-		expand_workqueue.push_back(new expand_workqueue_t[(SUBNODE_COUNT-1)/num_workers + 2]);
 		expand_worker[i] = new tthread::thread(expand_subnodes,expand_param);
 	}
 }
@@ -570,26 +571,20 @@ MCTree::MCTree()
 MCTree::~MCTree()
 {
 	tree_size_t i;
-	delete[] tree;
-	workqueue_mutex.lock();
-	for (i = 0; i < num_workers;i++) {
-		work_available[i] = true;
-	}
-
-	workers_busy = num_workers;
+	task_mutex.lock();
 	workers_keepalive = false;
-	workqueue_mutex.unlock();
-	start_workers.notify_all();
+	task_mutex.unlock();
+	tasks_available.notify_all();
 
-	finished_mutex.lock();
-	while (workers_busy) {
-		finished_workers.wait(finished_mutex);
+	task_mutex.lock();
+	while (workers_running) {
+		workers_quit.wait(task_mutex);
 	}
-	finished_mutex.unlock();
+	task_mutex.unlock();
 
 	for (i = 0; i < num_workers; i++) {
 		expand_worker[i]->join();
 		delete expand_worker[i];
-		delete[] expand_workqueue[i];
 	}
+	delete[] tree;
 }
