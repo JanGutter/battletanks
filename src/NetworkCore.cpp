@@ -619,13 +619,14 @@ void NetworkCore::play()
 			int tankid;
 			ns1__setAction setAction_req;
 			ns1__setActionResponse setAction_resp;
-			ns1__action action;
+			ns1__setActions setActions_req;
+			ns1__setActionsResponse setActions_resp;
+			ns1__action action[2];
+			sleeptime = safety_margin;
 
 			if (policy == POLICY_GREEDY) {
-				sleeptime = safety_margin;
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
-						setAction_req.arg0 = state.tank[tankid].id;
 						int bestcmd = C_FIRE;
 						int bestcost = INT_MAX;
 						int cost;
@@ -636,95 +637,62 @@ void NetworkCore::play()
 								bestcmd = c;
 							}
 						}
-						action = hton_cmd(bestcmd);
-						setAction_req.arg1 = &action;
-						soap_timer.restart();
-						soaperr = s.setAction(&setAction_req,&setAction_resp);
-						soap_timer.stop();
-						stat_setaction.push((double)soap_timer.get_milliseconds());
-						if (soaperr == SOAP_OK) {
-							sleeptime = setAction_resp.return_->millisecondsToNextTick;
-						} else {
-							s.soap_stream_fault(std::cerr);
-						}
-						s.destroy();
-					}
-				}
-#if DEBUG
-				cout << "Last SetAction [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_setaction.mean() << " ms]" << endl;
-				cout << "Waiting for end of turn in [" << sleeptime << " ms]" << endl;
-#endif
-				//From here on it's pondering time!
-				if (sleeptime+settle_time > 0 && (sleeptime < safety_margin)) {
-#if DEBUG
-					cout << "setAction was sent in time, waiting for " <<sleeptime+settle_time <<" ms" << endl;
-#endif
-					Sleep((uint32_t)sleeptime+settle_time);
-				} else {
-					if (sleeptime > (2*safety_margin)) {
-						safety_margin += safety_margin/4;
-#if DEBUG
-						cout << "setAction was not sent in time!" << endl;
-						cout << "Increasing safety_margin to: " << safety_margin << endl;
-#endif
-					} else {
-#if DEBUG
-						cout << "setAction appears to be sent in time, waiting for " << safety_margin+settle_time << " ms" << endl;
-#endif
-						Sleep((uint32_t)safety_margin+settle_time);
+						action[tankid] = hton_cmd(bestcmd);
 					}
 				}
 			} else if (policy == POLICY_RANDOM) {
-
-
-				tankid = rand() % 2;
-
-				if (!state.tank[tankid].active) {
-					tankid ^= 1;
+				for (tankid = 0; tankid < 2; tankid++) {
+					action[tankid] = static_cast<ns1__action> (rand() % 6);
 				}
+			} else if (policy == POLICY_FIXED) {
+				for (tankid = 0; tankid < 2; tankid++) {
+					if (state.tank[tankid].active) {
+						int myid = (myname == "Player Two");
+						if (state.tickno < NUMC) {
+							action[tankid] = hton_cmd(fixed_commands[myid][tankid][state.tickno]);
+						}
+					}
+				}
+			}
+
+			for (tankid = 0; tankid < 2; tankid++) {
 				if (state.tank[tankid].active) {
 					setAction_req.arg0 = state.tank[tankid].id;
-					action = static_cast<ns1__action> (rand() % 6);
-
-					setAction_req.arg1 = &action;
+					setAction_req.arg1 = &action[tankid];
 					soap_timer.restart();
 					soaperr = s.setAction(&setAction_req,&setAction_resp);
 					soap_timer.stop();
 					stat_setaction.push((double)soap_timer.get_milliseconds());
 					if (soaperr == SOAP_OK) {
-						sleeptime = llabs(setAction_resp.return_->millisecondsToNextTick);
+						sleeptime = setAction_resp.return_->millisecondsToNextTick;
 					} else {
-						sleeptime = safety_margin;
 						s.soap_stream_fault(std::cerr);
 					}
 					s.destroy();
-#if DEBUG
-					cout << "SetAction [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_setaction.mean() << " ms]" << endl;
-					cout << "Waiting for end of turn in [" << sleeptime << " ms]" << endl;
-#endif
-					Sleep((uint32_t)sleeptime);
-					Sleep(100);
-				} else {
-					//NO TANKS LEFT!!!!
 				}
-			} else if (policy == POLICY_FIXED) {
-				for (tankid = 0; tankid < 2; tankid++) {
-					if (state.tank[tankid].active) {
-						setAction_req.arg0 = state.tank[tankid].id;
-						int myid = (myname == "Player Two");
-						if (state.tickno < NUMC) {
-							action = hton_cmd(fixed_commands[myid][tankid][state.tickno]);
-							setAction_req.arg1 = &action;
-							soap_timer.restart();
-							soaperr = s.setAction(&setAction_req,&setAction_resp);
-							soap_timer.stop();
-							stat_setaction.push((double)soap_timer.get_milliseconds());
-							s.destroy();
+			}
 #if DEBUG
-							cout << "SetAction [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_setaction.mean() << " ms]" << endl;
+			cout << "Last SetAction [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_setaction.mean() << " ms]" << endl;
+			cout << "Waiting for end of turn in [" << sleeptime << " ms]" << endl;
 #endif
-						}
-					}
+			//From here on it's pondering time!
+			if (sleeptime+settle_time > 0 && (sleeptime < safety_margin)) {
+#if DEBUG
+				cout << "setAction was sent in time, waiting for " <<sleeptime+settle_time <<" ms" << endl;
+#endif
+				Sleep((uint32_t)sleeptime+settle_time);
+			} else {
+				if (sleeptime > (2*safety_margin)) {
+					safety_margin += safety_margin/4;
+#if DEBUG
+					cout << "setAction was not sent in time!" << endl;
+					cout << "Increasing safety_margin to: " << safety_margin << endl;
+#endif
+				} else {
+#if DEBUG
+					cout << "setAction appears to be sent in time, waiting for " << safety_margin+settle_time << " ms" << endl;
+#endif
+					Sleep((uint32_t)safety_margin+settle_time);
 				}
 			}
 		}
