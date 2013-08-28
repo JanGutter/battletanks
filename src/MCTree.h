@@ -87,9 +87,9 @@ public:
 	//THE FOLLOWING ELEMENTS ARE INVALID IF r.count() == 0
 	tree_size_t child[36][36];
 	unsigned char cmd_order[4][6];
-	unsigned char explored_at;
-	int alpha(MCTree& tree);
-	int beta(MCTree& tree);
+	unsigned char expanded_to;
+	int alpha(unsigned char width, MCTree& tree);
+	int beta(unsigned char width, MCTree& tree);
 };
 
 

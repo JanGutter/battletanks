@@ -98,46 +98,46 @@ int main(int argc, char** argv) {
 		//cout << mc_tree->root_state;
 		width = 3;
 		cout << "width: " << width << endl;
-		for (i = 0; i < 300; i++) {
+		for (i = 0; i < 380; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
 			node_id = mc_tree->root_id;
 #if BENCHMARK
-			cout << ">Select ";
 			select_timer.restart();
 #endif
 			mc_tree->select(width,path,node_id,node_state);
 #if BENCHMARK
 			select_timer.stop();
 			select_stat.push((double)select_timer.get_milliseconds());
-			cout << "mean: " << select_stat.mean() << " ms" << endl;
-/*			cout << ">Populate ";
+/*
 			utility_timer.restart();
 #endif
 			node_state.populateUtilityScores(*u);
 #if BENCHMARK
 			utility_timer.stop();
 			utility_stat.push((double)utility_timer.get_milliseconds());
-			cout << "mean: " << utility_stat.mean() << " ms" << endl;
-*/			cout << ">Expand ";
+*/
 			expand_timer.restart();
 #endif
 			mc_tree->expand_some(width,node_id,node_state,*u,path,results);
 #if BENCHMARK
 			expand_timer.stop();
 			expand_stat.push((double)expand_timer.get_milliseconds());
-			cout << "mean: " << expand_stat.mean() << " ms" << endl;
-			cout << ">Backprop ";
 			backprop_timer.restart();
 #endif
 			mc_tree->backprop(path,results);
 #if BENCHMARK
 			backprop_timer.stop();
 			backprop_stat.push((double)backprop_timer.get_milliseconds());
-			cout << "mean: " << backprop_stat.mean() << " ms" << endl;
 #endif
 		}
+#if BENCHMARK
+			cout << "Select mean: " << select_stat.mean() << " ms count: " << select_stat.count() << endl;
+			//cout << "Populate mean: " << utility_stat.mean() << " ms count: " utility_stat.count() << endl;
+			cout << "Expand mean: " << expand_stat.mean() << " ms count: " << expand_stat.count() << endl;
+			cout << "Backprop mean: " << backprop_stat.mean() << " ms count: " << backprop_stat.count() << endl;
+#endif
 #if 0
 		for (i = 0; i < 36; i++) {
 			for (j = 0; j < 36; j++) {

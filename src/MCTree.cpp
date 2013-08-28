@@ -40,11 +40,12 @@ inline bool child_unexplored(tree_size_t child)
 
 inline bool child_explored(tree_size_t child)
 {
-	return (child != THREADID_PRUNED) && (child != THREADID_UNEXPLORED);
+	return (child  > THREADID_PRUNED);
 }
 
-inline int Node::alpha(MCTree& tree)
+inline int Node::alpha(unsigned char width, MCTree& tree)
 {
+	unsigned int t0,t1,t2,t3;
 	int i,j;
 	unsigned long int t_;
 	double r_;
@@ -53,34 +54,41 @@ inline int Node::alpha(MCTree& tree)
 	double maxscore = W_PLAYER1;
 	int bestmove = -1;
 
-	for (i = 0; i < 36; i++) {
-		t_ = 0;
-		r_ = 0.0;
-		sigma_ = 0.0;
-		for (j = 0; j < 36; j++) {
-			//For all legal moves for P0 and P1
-			if (child_explored(child[i][j])) {
-				Node& c = tree.tree[child[i][j]];
-				t_ += c.r.count();
-				r_ += c.r.count()*c.r.mean();
-				sigma_ += c.r.count()*c.r.variance();
+	for (t1 = 0; t1 < width; t1++) {
+		for (t0 = 0; t0 < width; t0++) {
+			t_ = 0;
+			r_ = 0.0;
+			sigma_ = 0.0;
+			for (t3 = 0; t3 < width; t3++) {
+				for (t2 = 0; t2 < width; t2++) {
+					i = t0+6*t1;
+					j = t2+6*t3;
+					//For all legal moves for P0 and P1 < width
+					if (child_explored(child[i][j])) {
+						Node& c = tree.tree[child[i][j]];
+						t_ += c.r.count();
+						r_ += c.r.count()*c.r.mean();
+						sigma_ += c.r.count()*c.r.variance();
+					}
+				}
 			}
-		}
-		if (t_ > 0) {
-			r_ /= t_;
-			sigma_ /= t_;
-			score = UCB1T_score_alpha(t_,r_,sigma_,r.count());
-			if (score > maxscore) {
-				maxscore = score;
-				bestmove = i;
+			if (t_ > 0) {
+				r_ /= t_;
+				sigma_ /= t_;
+				score = UCB1T_score_alpha(t_,r_,sigma_,r.count());
+				if (score > maxscore) {
+					maxscore = score;
+					bestmove = i;
+				}
 			}
 		}
 	}
 	return bestmove;
 }
 
-inline int Node::beta(MCTree& tree)
+inline int Node::beta(unsigned char width, MCTree& tree)
 {
+	unsigned int t0,t1,t2,t3;
 	int i,j;
 	unsigned long int t_;
 	double r_;
@@ -89,26 +97,32 @@ inline int Node::beta(MCTree& tree)
 	double minscore = W_PLAYER0;
 	int bestmove = -1;
 
-	for (j = 0; j < 36; j++) {
-		t_ = 0;
-		r_ = 0.0;
-		sigma_ = 0.0;
-		for (i = 0; i < 36; i++) {
-			//For all legal moves for P0 and P1
-			if (child_explored(child[i][j])) {
-				Node& c = tree.tree[child[i][j]];
-				t_ += c.r.count();
-				r_ += c.r.count()*c.r.mean();
-				sigma_ += c.r.count()*c.r.variance();
+	for (t3 = 0; t3 < width; t3++) {
+		for (t2 = 0; t2 < width; t2++) {
+			t_ = 0;
+			r_ = 0.0;
+			sigma_ = 0.0;
+			for (t1 = 0; t1 < width; t1++) {
+				for (t0 = 0; t0 < width; t0++) {
+					//For all legal moves for P0 and P1 < width
+					i = t0+6*t1;
+					j = t2+6*t3;
+					if (child_explored(child[i][j])) {
+						Node& c = tree.tree[child[i][j]];
+						t_ += c.r.count();
+						r_ += c.r.count()*c.r.mean();
+						sigma_ += c.r.count()*c.r.variance();
+					}
+				}
 			}
-		}
-		if (t_ > 0) {
-			r_ /= t_;
-			sigma_ /= t_;
-			score = UCB1T_score_beta(t_,r_,sigma_,r.count());
-			if (score < minscore) {
-				minscore = score;
-				bestmove = j;
+			if (t_ > 0) {
+				r_ /= t_;
+				sigma_ /= t_;
+				score = UCB1T_score_beta(t_,r_,sigma_,r.count());
+				if (score < minscore) {
+					minscore = score;
+					bestmove = j;
+				}
 			}
 		}
 	}
@@ -199,7 +213,7 @@ void expand_subnodes(void* thread_param) {
 						mc_tree->tree[*workqueue->child_ptr].terminal = false;
 						mc_tree->child_state[threadid].playout(mc_tree->worker_sfmt[threadid]);
 					}
-					mc_tree->tree[*workqueue->child_ptr].explored_at = 0;
+					mc_tree->tree[*workqueue->child_ptr].expanded_to = 0;
 					mc_tree->tree[*workqueue->child_ptr].r.init();
 					mc_tree->tree[*workqueue->child_ptr].r.push(mc_tree->child_state[threadid].winner);
 #if DEBUG > 2
@@ -251,7 +265,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		cout << "Ran out of tree!" << endl;
 		return; //Silently fail
 	}
-	tree[node_id].explored_at = max(width,tree[node_id].explored_at);
+	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
 	if (tree[node_id].r.count() == 1) {
 		//This is the first time we're trying to expand this node. Set all children to UNEXPLORED;
 		memset(&tree[node_id].child,0,sizeof(tree[node_id].child));
@@ -364,9 +378,9 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 #if DEBUG
 	cout << "Select at node: " << node_id << endl;
 #endif
-	while (tree[node_id].explored_at >= width && !tree[node_id].terminal) {
-		m.alpha = tree[node_id].alpha(*this);
-		m.beta = tree[node_id].beta(*this);
+	while (tree[node_id].expanded_to >= width && !tree[node_id].terminal) {
+		m.alpha = tree[node_id].alpha(tree[node_id].expanded_to,*this);
+		m.beta = tree[node_id].beta(tree[node_id].expanded_to,*this);
 #if DEBUG
 		cout << "UCB1Tuned returned alpha:" << m.alpha << " beta:" << m.beta << endl;
 #endif
@@ -482,7 +496,7 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	zero.alpha = 0;
 	zero.beta = 0;
 	path.push_back(zero);
-	tree[root_id].explored_at = 0;
+	tree[root_id].expanded_to = 0;
 	//no need to select when priming root
 	expand_all(root_id,root_state,reference_u,path,results);
 	//only necessary to redistribute when priming root or promoting a node to root
