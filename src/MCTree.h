@@ -58,8 +58,8 @@ public:
 	vector<expand_workqueue_t*> expand_workqueue;
 
 	tthread::mutex finished_mutex;
-	tthread::condition_variable finished_work;
-	vector<bool> work_completed;
+	tthread::condition_variable finished_workers;
+	int workers_busy;
 
 	vector<PlayoutState> child_state;
 	vector<sfmt_t> worker_sfmt;
@@ -88,8 +88,8 @@ public:
 	tree_size_t child[36][36];
 	unsigned char cmd_order[4][6];
 	unsigned char expanded_to;
-	int alpha(unsigned char width, MCTree& tree);
-	int beta(unsigned char width, MCTree& tree);
+	int alpha(MCTree& tree);
+	int beta(MCTree& tree);
 };
 
 

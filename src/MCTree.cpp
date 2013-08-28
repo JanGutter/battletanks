@@ -40,10 +40,10 @@ inline bool child_unexplored(tree_size_t child)
 
 inline bool child_explored(tree_size_t child)
 {
-	return (child  > THREADID_PRUNED);
+	return (child > THREADID_PRUNED);
 }
 
-inline int Node::alpha(unsigned char width, MCTree& tree)
+inline int Node::alpha(MCTree& tree)
 {
 	unsigned int t0,t1,t2,t3;
 	int i,j;
@@ -54,19 +54,25 @@ inline int Node::alpha(unsigned char width, MCTree& tree)
 	double maxscore = W_PLAYER1;
 	int bestmove = -1;
 
-	for (t1 = 0; t1 < width; t1++) {
-		for (t0 = 0; t0 < width; t0++) {
+	if (expanded_to < 2) {
+		cout << "expanded_to < 2 !" << endl;
+	}
+	for (t1 = 0; t1 < expanded_to; t1++) {
+		for (t0 = 0; t0 < expanded_to; t0++) {
 			t_ = 0;
 			r_ = 0.0;
 			sigma_ = 0.0;
-			for (t3 = 0; t3 < width; t3++) {
-				for (t2 = 0; t2 < width; t2++) {
-					i = t0+6*t1;
+			i = t0+6*t1;
+			for (t3 = 0; t3 < expanded_to; t3++) {
+				for (t2 = 0; t2 < expanded_to; t2++) {
 					j = t2+6*t3;
 					//For all legal moves for P0 and P1 < width
 					if (child_explored(child[i][j])) {
 						Node& c = tree.tree[child[i][j]];
 						t_ += c.r.count();
+						if (r.mean() == 3.14) {
+							cout << "Testing r.mean()" << endl;
+						}
 						r_ += c.r.count()*c.r.mean();
 						sigma_ += c.r.count()*c.r.variance();
 					}
@@ -86,7 +92,7 @@ inline int Node::alpha(unsigned char width, MCTree& tree)
 	return bestmove;
 }
 
-inline int Node::beta(unsigned char width, MCTree& tree)
+inline int Node::beta(MCTree& tree)
 {
 	unsigned int t0,t1,t2,t3;
 	int i,j;
@@ -97,16 +103,16 @@ inline int Node::beta(unsigned char width, MCTree& tree)
 	double minscore = W_PLAYER0;
 	int bestmove = -1;
 
-	for (t3 = 0; t3 < width; t3++) {
-		for (t2 = 0; t2 < width; t2++) {
+	for (t3 = 0; t3 < expanded_to; t3++) {
+		for (t2 = 0; t2 < expanded_to; t2++) {
 			t_ = 0;
 			r_ = 0.0;
 			sigma_ = 0.0;
-			for (t1 = 0; t1 < width; t1++) {
-				for (t0 = 0; t0 < width; t0++) {
+			j = t2+6*t3;
+			for (t1 = 0; t1 < expanded_to; t1++) {
+				for (t0 = 0; t0 < expanded_to; t0++) {
 					//For all legal moves for P0 and P1 < width
 					i = t0+6*t1;
-					j = t2+6*t3;
 					if (child_explored(child[i][j])) {
 						Node& c = tree.tree[child[i][j]];
 						t_ += c.r.count();
@@ -148,14 +154,14 @@ void expand_subnodes(void* thread_param) {
 			cout << "Thread (" << threadid << ") going to sleep" << endl;
 #endif
 			mc_tree->start_workers.wait(mc_tree->workqueue_mutex);
+#if DEBUG > 1
+			cout << "Thread (" << threadid << ") waking up" << endl;
+#endif
 		} else {
 #if DEBUG > 1
 			cout << "Thread (" << threadid << ") work already in queue" << endl;
 #endif
 		}
-#if DEBUG > 1
-		cout << "Thread (" << threadid << ") waking up" << endl;
-#endif
 		if (mc_tree->work_available[threadid]) {
 			mc_tree->work_available[threadid] = false;
 #if DEBUG > 1
@@ -203,6 +209,12 @@ void expand_subnodes(void* thread_param) {
 #if DEBUG > 2
 				cout << endl;
 #endif
+#define ASSERT 1
+#if ASSERT
+				if (*workqueue->child_ptr == 0) {
+					cout << "Something's wrong, child_ptr should never be 0!" << endl;
+				}
+#endif
 				if (child_legalmove(*workqueue->child_ptr)) {
 					memcpy(&mc_tree->child_state[threadid],workqueue->parent_state,sizeof(PlayoutState));
 					memcpy(mc_tree->child_state[threadid].command,command,sizeof(command));
@@ -225,24 +237,32 @@ void expand_subnodes(void* thread_param) {
 				workqueue++;
 			}
 			mc_tree->finished_mutex.lock();
-			mc_tree->work_completed[threadid] = true;
+			mc_tree->workers_busy--;
+			if (!mc_tree->workers_busy) {
+				mc_tree->finished_workers.notify_one();
+			}
 			mc_tree->finished_mutex.unlock();
-			mc_tree->finished_work.notify_one();
+
 			mc_tree->workqueue_mutex.lock();
 			running = mc_tree->workers_keepalive;
 #if DEBUG > 1
 			cout << "Thread (" << threadid << ") work completed" << endl;
 #endif
 		} else {
+#if DEBUG > 1
+			cout << "Thread (" << threadid << ") woke up with no work!" << endl;
+#endif
 			running = mc_tree->workers_keepalive;
 		}
 	}
 	mc_tree->workqueue_mutex.unlock();
 
 	mc_tree->finished_mutex.lock();
-	mc_tree->work_completed[threadid] = true;
+	mc_tree->workers_busy--;
+	if (!mc_tree->workers_busy) {
+		mc_tree->finished_workers.notify_one();
+	}
 	mc_tree->finished_mutex.unlock();
-	mc_tree->finished_work.notify_one();
 #if DEBUG
 	cout << "Thread (" << threadid << ") exiting" << endl;
 #endif
@@ -262,10 +282,12 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 
 	if (unallocated_count < 36*36) {
 		//TODO: Revert to playouts only
-		cout << "Ran out of tree!" << endl;
+		cerr << "Ran out of tree!" << endl;
 		return; //Silently fail
 	}
-	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
+#if DEBUG
+	cout << "Expanding [" << node_id << "] to width: " << (int)width << endl;
+#endif
 	if (tree[node_id].r.count() == 1) {
 		//This is the first time we're trying to expand this node. Set all children to UNEXPLORED;
 		memset(&tree[node_id].child,0,sizeof(tree[node_id].child));
@@ -320,26 +342,23 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		paramno += (threadno + 1) / num_workers;
 		threadno = (threadno + 1) % num_workers;
 	}
-
+#if DEBUG
+	cout << "Waiting for workqueue mutex" << endl;
+#endif
 	workqueue_mutex.lock();
+#if DEBUG
+	cout << "Got workqueue mutex" << endl;
+#endif
 	for (i = 0; i < num_workers;i++) {
-		work_completed[i] = false;
 		work_available[i] = true;
 	}
+	workers_busy = num_workers;
 	workqueue_mutex.unlock();
 	start_workers.notify_all();
 
 	finished_mutex.lock();
-	bool done = true;
-	for (i = 0; i < num_workers;i++) {
-		done = done && work_completed[i];
-	}
-	while (!done) {
-		finished_work.wait(finished_mutex);
-		done = true;
-		for (i = 0; i < num_workers;i++) {
-			done = done && work_completed[i];
-		}
+	while (workers_busy) {
+		finished_workers.wait(finished_mutex);
 	}
 	finished_mutex.unlock();
 
@@ -370,6 +389,11 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 			workqueue++;
 		}
 	}
+
+	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
+#if DEBUG
+	cout << "[" << node_id << "] expanded to: " << (int)tree[node_id].expanded_to << endl;
+#endif
 }
 
 void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state)
@@ -379,8 +403,8 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 	cout << "Select at node: " << node_id << endl;
 #endif
 	while (tree[node_id].expanded_to >= width && !tree[node_id].terminal) {
-		m.alpha = tree[node_id].alpha(tree[node_id].expanded_to,*this);
-		m.beta = tree[node_id].beta(tree[node_id].expanded_to,*this);
+		m.alpha = tree[node_id].alpha(*this);
+		m.beta = tree[node_id].beta(*this);
 #if DEBUG
 		cout << "UCB1Tuned returned alpha:" << m.alpha << " beta:" << m.beta << endl;
 #endif
@@ -389,7 +413,7 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 			node_id = tree[node_id].child[m.alpha][m.beta];
 			node_state.move(m);
 		} else {
-			cerr << "Oops, select alpha/beta is invalid!" << endl;
+			cerr << "Oops, select alpha/beta is invalid! [" << node_id << "]" << endl;
 			break;
 		}
 #if DEBUG
@@ -397,7 +421,7 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 #endif
 	}
 #if DEBUG
-	cout << "[" << node_id << "] c:" << tree[node_id].r.count() << " t" << tree[node_id].terminal << endl;
+	cout << "[" << node_id << "] c:" << tree[node_id].r.count() << " terminal:" << tree[node_id].terminal << endl;
 #endif
 }
 
@@ -513,7 +537,7 @@ MCTree::MCTree()
 
 	//TODO: figure out a good value for tree_size
 	//tree_size = 100000l;
-	tree_size = 200000l;
+	tree_size = 100000l;
 	tree = new Node[tree_size];
 	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
 	for (i = 2; i < tree_size; i++) {
@@ -526,9 +550,11 @@ MCTree::MCTree()
 	num_workers = min(tthread::thread::hardware_concurrency(),MAXTHREADS);
 	workers_keepalive = true;
 	srand((unsigned int)(time(NULL)));
-	work_completed.resize(4,false);
-	work_available.resize(4,false);
-	child_state.resize(4);
+	//workqueue_mutex.lock();
+	child_state.resize(num_workers);
+	workers_busy = 0;
+	work_available.resize(num_workers,false);
+	//workqueue_mutex.unlock();
 	for (i = 0; i < num_workers; i++) {
 		expand_thread_param_t* expand_param = new expand_thread_param_t;
 		expand_param->threadid = i;
@@ -547,23 +573,17 @@ MCTree::~MCTree()
 	delete[] tree;
 	workqueue_mutex.lock();
 	for (i = 0; i < num_workers;i++) {
-		work_completed[i] = false;
+		work_available[i] = true;
 	}
+
+	workers_busy = num_workers;
 	workers_keepalive = false;
 	workqueue_mutex.unlock();
 	start_workers.notify_all();
 
 	finished_mutex.lock();
-	bool done = true;
-	for (i = 0; i < num_workers;i++) {
-		done = done && work_completed[i];
-	}
-	while (!done) {
-		finished_work.wait(finished_mutex);
-		done = true;
-		for (i = 0; i < num_workers;i++) {
-			done = done && work_completed[i];
-		}
+	while (workers_busy) {
+		finished_workers.wait(finished_mutex);
 	}
 	finished_mutex.unlock();
 
