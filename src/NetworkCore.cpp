@@ -624,7 +624,8 @@ void NetworkCore::play()
 			ns1__action action[2];
 			sleeptime = safety_margin;
 
-			if (policy == POLICY_GREEDY) {
+			switch (policy) {
+			case POLICY_GREEDY:
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
 						int bestcmd = C_FIRE;
@@ -640,11 +641,14 @@ void NetworkCore::play()
 						action[tankid] = hton_cmd(bestcmd);
 					}
 				}
-			} else if (policy == POLICY_RANDOM) {
+				break;
+			default:
+			case POLICY_RANDOM:
 				for (tankid = 0; tankid < 2; tankid++) {
 					action[tankid] = static_cast<ns1__action> (rand() % 6);
 				}
-			} else if (policy == POLICY_FIXED) {
+				break;
+			case POLICY_FIXED:
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
 						int myid = (myname == "Player Two");
@@ -653,6 +657,7 @@ void NetworkCore::play()
 						}
 					}
 				}
+				break;
 			}
 
 			for (tankid = 0; tankid < 2; tankid++) {
