@@ -81,51 +81,19 @@ void PlayoutState::drawTank(const int t, const int block)
 void PlayoutState::moveBullets()
 {
 	int i;
-	int newx,newy;
-
-	//0: Untag all bullets
-	for (i = 0; i < 4; i++) {
-		bullet[i].tag = 0;
-	}
-
-	//1: If two bullets pass each other on a collinear trajectory
-	//on an empty square, remove them from play.
-	//2: If a bullet is leaving the arena, remove it from play.
-	for (i = 0; i < 4; i++) {
-		if (bullet[i].active) {
-			newx = bullet[i].x + O_LOOKUP(bullet[i].o,O_X);
-			newy = bullet[i].y + O_LOOKUP(bullet[i].o,O_Y);
-			if (insideBounds(newx,newy)) {
-				if (board[newx][newy] == B_OPPOSITE(bullet[i].o)) {
-					bullet[i].tag = 1;
-				}
-			} else {
-				bullet[i].tag = 1;
-			}
-		}
-	}
-
-	//3: Erase all active bullets, set bullets that have been tagged
-	//to inactive.
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
 			board[bullet[i].x][bullet[i].y] = B_EMPTY;
-			if (bullet[i].tag) {
+			bullet[i].x += O_LOOKUP(bullet[i].o,O_X);
+			bullet[i].y += O_LOOKUP(bullet[i].o,O_Y);
+			if (insideBounds(bullet[i].x,bullet[i].y)) {
+				board[bullet[i].x][bullet[i].y] |= B_LOOKUP(bullet[i].o);
+			} else {
 				bullet[i].active = 0;
 			}
 		}
 	}
-
-	//4: Update bullet coordinates.
-	//5: Add all active bullets to the board.
 	//NOTE: MUST RESOLVE COLLISIONS AFTER THIS!
-	for (i = 0; i < 4; i++) {
-		if (bullet[i].active) {
-			bullet[i].x += O_LOOKUP(bullet[i].o,O_X);
-			bullet[i].y += O_LOOKUP(bullet[i].o,O_Y);
-			board[bullet[i].x][bullet[i].y] |= B_LOOKUP(bullet[i].o);
-		}
-	}
 }
 
 void PlayoutState::moveTanks()
@@ -173,21 +141,19 @@ void PlayoutState::moveTanks()
 
 void PlayoutState::fireTanks()
 {
-	int i,o,newx,newy;
+	int i;
 	for (i = 0; i < 4; i++) {
 		if ((command[i] == C_FIRE) && (tank[i].active) && (!bullet[i].active)) {
-			o = tank[i].o;
-			newx = tank[i].x + FIRE_LOOKUP(o,O_X);
-			newy = tank[i].y + FIRE_LOOKUP(o,O_Y);
-			if (insideBounds(newx,newy)) {
+			bullet[i].x = tank[i].x + FIRE_LOOKUP(tank[i].o,O_X);
+			bullet[i].y = tank[i].y + FIRE_LOOKUP(tank[i].o,O_Y);
+			if (insideBounds(bullet[i].x,bullet[i].y)) {
 				bullet[i].active = 1;
-				bullet[i].o = o;
-				bullet[i].x = newx;
-				bullet[i].y = newy;
-				board[newx][newy] |= B_LOOKUP(o);
+				bullet[i].o = tank[i].o;
+				board[bullet[i].x][bullet[i].y] |= B_LOOKUP(tank[i].o);
 			}
 		}
 	}
+	//NOTE: MUST RESOLVE COLLISIONS AFTER THIS!
 }
 
 void PlayoutState::checkCollisions()
@@ -205,6 +171,8 @@ void PlayoutState::checkCollisions()
 
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
+			//If the bullet passed another one in the opposite direction, it's tagged for removal;
+			bullet[i].tag = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)] & B_OPPOSITE(bullet[i].o);
 			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
 			square = board[bullet[i].x][bullet[i].y] & (B_OCCUPIED);
 			if (square != B_EMPTY) {
