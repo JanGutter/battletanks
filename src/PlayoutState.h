@@ -16,6 +16,7 @@ using namespace std;
 struct TankState {
 	int id;
 	int active;
+	int canfire;
 	int x,y; //Position
 	int o; //Orientation
 	int a; //Action (probably going to get ignored)
@@ -74,6 +75,7 @@ public:
 	void move(Move& m);
 	void simulateTick();
 	double playout(sfmt_t& sfmt);
+	void updateCanFire();
 	bool insideBounds(const int x, const int y);
 	bool isTankInsideBounds(const int x, const int y);
 	bool clearTrajectory(int x, int y, int o, int t_x, int t_y);

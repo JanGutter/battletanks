@@ -156,7 +156,7 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 			break;
 		}
 		//Prune unnecessary move
-		if (task->parent_state->bullet[i].active && command[i] == C_FIRE) {
+		if (!task->parent_state->tank[i].canfire && command[i] == C_FIRE) {
 			(*task->child_ptr) = THREADID_PRUNED;
 			break;
 		}
@@ -287,7 +287,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	unsigned int i,j;
 	unsigned int t0,t1,t2,t3;
 
-	if (unallocated_count < (width*width*width*width)) {
+	if (unallocated_count < ((tree_size_t)width*width*width*width)) {
 		//TODO: Revert to playouts only
 		cerr << "Ran out of tree!" << endl;
 		return; //Silently fail
@@ -312,7 +312,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 				}
 
 				sort(cmd_and_utilities.begin(), cmd_and_utilities.end(), sort_pair_second<int, int>());
-				if (!node_state.bullet[i].active) {
+				if (node_state.tank[i].canfire) {
 					if (cmd_and_utilities[0].second < node_state.cmdToUtility(C_FIRE,i,u)) {
 						//Move then fire
 						tree[node_id].cmd_order[i][0] = (unsigned char) cmd_and_utilities[0].first;
@@ -460,6 +460,7 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 			path.push_back(m);
 			node_id = tree[node_id].child[m.alpha][m.beta];
 			node_state.move(m);
+			node_state.updateCanFire();
 		} else {
 			cerr << "Oops, select alpha/beta is invalid! [" << node_id << "]" << endl;
 			break;
@@ -587,6 +588,7 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	root_state.drawBases();
 	root_state.drawTanks();
 	root_state.drawBullets();
+	root_state.updateCanFire();
 	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
 	tree[root_id].r.init();
 	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));
@@ -627,6 +629,7 @@ void MCTree::reset(PlayoutState& reference_state, UtilityScores& reference_u)
 	root_state.drawBases();
 	root_state.drawTanks();
 	root_state.drawBullets();
+	root_state.updateCanFire();
 	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
 	tree[root_id].r.init();
 	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));

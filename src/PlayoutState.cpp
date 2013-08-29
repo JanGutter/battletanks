@@ -158,7 +158,7 @@ void PlayoutState::fireTanks()
 
 void PlayoutState::checkCollisions()
 {
-	int i,j,square,other_bullet,x,y,active_tanks,active_bullets;
+	int i,j,square,other_bullet,x,y,active_tanks,active_bullets,prevsquare;
 
 	for (i = 0; i < 4; i++) {
 		bullet[i].tag = 0;
@@ -167,12 +167,13 @@ void PlayoutState::checkCollisions()
 		tank[i].tag = 0;
 	}
 
-	//TODO: Bullets that pass each other can be whacked here.
-
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
+
+			prevsquare = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)];
 			//If the bullet passed another one in the opposite direction, it's tagged for removal;
-			bullet[i].tag = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)] & B_OPPOSITE(bullet[i].o);
+			//EXCEPT if the previous square contains the tank that fired it.
+			bullet[i].tag = !(prevsquare & B_TANK) && (prevsquare & B_OPPOSITE(bullet[i].o));
 			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
 			square = board[bullet[i].x][bullet[i].y] & (B_OCCUPIED);
 			if (square != B_EMPTY) {
@@ -254,6 +255,7 @@ void PlayoutState::checkCollisions()
 	}
 }
 
+
 void PlayoutState::simulateTick()
 {
 	tickno++;
@@ -276,6 +278,29 @@ void PlayoutState::simulateTick()
 	checkCollisions();
 }
 
+void PlayoutState::updateCanFire()
+//This is not 100% effective, but a good heuristic.
+{
+	int i,x1,y1,x2,y2;
+	for (i = 0; i < 4; i++) {
+		if (bullet[i].active) {
+			tank[i].canfire = 0;
+			x1 = bullet[i].x + O_LOOKUP(bullet[i].o,O_X);
+			y1 = bullet[i].x + O_LOOKUP(bullet[i].o,O_Y);
+			x2 = bullet[i].x + 2*O_LOOKUP(bullet[i].o,O_X);
+			y2 = bullet[i].x + 2*O_LOOKUP(bullet[i].o,O_Y);
+			if (insideBounds(x1,y1)) {
+				tank[i].canfire = board[x1][y1] != B_EMPTY;
+				if (!tank[i].canfire && insideBounds(x2,y2)) {
+					tank[i].canfire = board[x2][y2] != B_EMPTY;
+				}
+			}
+		} else {
+			tank[i].canfire = 1;
+		}
+	}
+}
+
 void PlayoutState::move(Move& m)
 {
 	command[0] = C_T0(m.alpha,m.beta);
@@ -291,10 +316,11 @@ double PlayoutState::playout(sfmt_t& sfmt)
 	int maxmove = endgame_tick+(max_x/2)-tickno;
 	winner = W_DRAW;
 	for (move = 0; move < maxmove; move++) {
+		updateCanFire();
 		for (i = 0; i < 4; i++) {
 			//command[i] = tank[i].active * (sfmt_genrand_uint32(&sfmt) % 6)
-			command[i] = tank[i].active * ((1-bullet[i].active)*(sfmt_genrand_uint32(&sfmt) % 6)
-					+ (bullet[i].active)*(sfmt_genrand_uint32(&sfmt) % 4));
+			command[i] = tank[i].active * ((tank[i].canfire)*(sfmt_genrand_uint32(&sfmt) % 6)
+					+ (1-tank[i].canfire)*(sfmt_genrand_uint32(&sfmt) % 4));
 		}
 		simulateTick();
 		if (gameover) {
@@ -431,10 +457,9 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 	int hitcost;
 	int x,y,o;
 	TankState& t = tank[tank_id];
-	BulletState& b = bullet[tank_id];
 	switch (c) {
 	case C_FIRE:
-		if (b.active) {
+		if (!t.canfire) {
 			return INT_MAX;
 		}
 		x = t.x + FIRE_LOOKUP(t.o,O_X);
@@ -442,6 +467,9 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 		wallcount = 0;
 		i = 0;
 		while (insideBounds(x,y) && !onTarget(tank_id,x,y)) {
+			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
+				return 0; //Bullet heading this way, FIRE!
+			}
 			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
 			i++;
 			x += O_LOOKUP(t.o,O_X);

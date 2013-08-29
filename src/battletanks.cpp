@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 		PlayoutState node_state;
 		vector<Move> path;
 		vector<double> results;
-		long int looptime = 0;
+		int64_t looptime = 0;
 
 		ifstream fin("board1.map");
 		fin >> node_state;
