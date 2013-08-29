@@ -22,6 +22,7 @@ using namespace std;
 #define POLICY_RANDOM 0
 #define POLICY_GREEDY 1
 #define POLICY_FIXED 2
+#define POLICY_MCTS 3
 
 class NetworkCore {
 private:

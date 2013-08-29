@@ -86,10 +86,12 @@ public:
 	tree_size_t allocated_count[36][36]; //Workaround for O(n) complexity list.size()
 	list <tree_size_t> allocated_to_root;
 	unsigned int num_results();
+	unsigned int best_alpha();
 	void handle_task(int taskid, int threadid);
 	void post_result(int alpha, int beta);
 	bool tasks_empty();
 	void init(PlayoutState& reference_state,UtilityScores& reference_u);
+	void reset(PlayoutState& reference_state,UtilityScores& reference_u);
 	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
 	void redistribute(vector<Move>& path);
 	void backprop(vector<Move>& path, vector<double>& result);

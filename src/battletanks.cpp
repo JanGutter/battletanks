@@ -52,13 +52,14 @@ int main(int argc, char** argv) {
 
 		cout << "Network Play using SOAP: [" << soap_endpoint << "]" << endl;
 		NetworkCore* netcore = new NetworkCore(soap_endpoint);
-		netcore->policy = POLICY_GREEDY;
+		netcore->policy = POLICY_MCTS;
 		netcore->login();
 		netcore->play();
 		delete netcore;
 
 	} else if (mode == MODE_BENCHMARK) {
 		int i,width;
+		platformstl::performance_counter overall_timer;
 #if BENCHMARK
 		platformstl::performance_counter utility_timer;
 		platformstl::performance_counter select_timer;
@@ -73,11 +74,13 @@ int main(int argc, char** argv) {
 		backprop_stat.init();
 		expand_stat.init();
 #endif
+		overall_timer.restart();
 		UtilityScores* u = new UtilityScores;
 		tree_size_t node_id;
 		PlayoutState node_state;
 		vector<Move> path;
 		vector<double> results;
+		long int looptime = 0;
 
 		ifstream fin("board1.map");
 		fin >> node_state;
@@ -96,9 +99,12 @@ int main(int argc, char** argv) {
 #endif
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 6;
+		width = 2;
 		cout << "width: " << width << endl;
-		for (i = 0; i < 33; i++) {
+		overall_timer.stop();
+		looptime += overall_timer.get_microseconds();
+		overall_timer.restart();
+		for (i = 0; looptime < 2500000; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
@@ -110,14 +116,14 @@ int main(int argc, char** argv) {
 #if BENCHMARK
 			select_timer.stop();
 			select_stat.push((double)select_timer.get_milliseconds());
-/*
+			/*
 			utility_timer.restart();
 #endif
 			node_state.populateUtilityScores(*u);
 #if BENCHMARK
 			utility_timer.stop();
 			utility_stat.push((double)utility_timer.get_milliseconds());
-*/
+			 */
 			expand_timer.restart();
 #endif
 			mc_tree->expand_some(width,node_id,node_state,*u,path,results);
@@ -131,12 +137,17 @@ int main(int argc, char** argv) {
 			backprop_timer.stop();
 			backprop_stat.push((double)backprop_timer.get_milliseconds());
 #endif
+
+			overall_timer.stop();
+			looptime += overall_timer.get_microseconds();
+			overall_timer.restart();
+
 		}
 #if BENCHMARK
-			cout << "Select mean: " << select_stat.mean() << " ms count: " << select_stat.count() << endl;
-			//cout << "Populate mean: " << utility_stat.mean() << " ms count: " utility_stat.count() << endl;
-			cout << "Expand mean: " << expand_stat.mean() << " ms count: " << expand_stat.count() << endl;
-			cout << "Backprop mean: " << backprop_stat.mean() << " ms count: " << backprop_stat.count() << endl;
+		cout << "Select mean: " << select_stat.mean() << " ms count: " << select_stat.count() << endl;
+		//cout << "Populate mean: " << utility_stat.mean() << " ms count: " utility_stat.count() << endl;
+		cout << "Expand mean: " << expand_stat.mean() << " ms count: " << expand_stat.count() << endl;
+		cout << "Backprop mean: " << backprop_stat.mean() << " ms count: " << backprop_stat.count() << endl;
 #endif
 #if 0
 		for (i = 0; i < 36; i++) {

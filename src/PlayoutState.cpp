@@ -201,6 +201,8 @@ void PlayoutState::checkCollisions()
 		tank[i].tag = 0;
 	}
 
+	//TODO: Bullets that pass each other can be whacked here.
+
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
 			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
@@ -470,14 +472,14 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 		x = t.x + FIRE_LOOKUP(t.o,O_X);
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
-		i = 1;
+		i = 0;
 		while (insideBounds(x,y) && !onTarget(tank_id,x,y)) {
 			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
 			i++;
 			x += O_LOOKUP(t.o,O_X);
 			y += O_LOOKUP(t.o,O_Y);
 		}
-		hitcost = INT_MAX;
+		hitcost = INT_MAX-1;
 		if (onTarget(tank_id,x,y)) {
 			//HIT!
 			hitcost = ((i/2)+wallcount+1);
@@ -488,7 +490,7 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 			return min(hitcost,u.cost[0][t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
 		} else {
 			//Just shoot
-			return min(hitcost,INT_MAX);
+			return min(hitcost,INT_MAX-1);
 		}
 	case C_UP:
 	case C_DOWN:

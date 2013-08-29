@@ -44,6 +44,10 @@ typedef uint16_t move_t;
 #define C_T1(alpha,beta) ((alpha) / 6)
 #define C_T2(alpha,beta) ((beta) % 6)
 #define C_T3(alpha,beta) ((beta) / 6)
+// Given commands for T0 and T1, what's alpha?
+#define C_TO_ALPHA(t0,t1) ((t1)*6+(t0))
+// Given commands for T2 and T3, what's beta?
+#define C_TO_BETA(t2,t3) ((t3)*6+(t2))
 
 #define C_X 0
 #define C_Y 1
@@ -79,6 +83,23 @@ const int BUMP_LOOKUP_TABLE[4][5][2] = {
 #define BUMP_LOOKUP(c,i,axis) BUMP_LOOKUP_TABLE[(c)-2][(i)][(axis)]
 #define BUMP_OPPOSITE(c,i,axis) BUMP_LOOKUP_TABLE[((c)-2)^1][(i)][(axis)]
 
+#define O_X 0
+#define O_Y 1
+
+#define O_UP 0
+#define O_DOWN 1
+#define O_LEFT 2
+#define O_RIGHT 3
+
+const int O_LOOKUP_TABLE[4][2] = {
+		{0,-1},/*up*/
+		{0,1},/*down*/
+		{-1,0},/*left*/
+		{1,0}/*right*/};
+
+#define O_LOOKUP(o,axis) O_LOOKUP_TABLE[(o)][(axis)]
+#define O_OPPOSITE(o) ((o)^1)
+
 const int FIRE_LOOKUP_TABLE[4][2] = {
 		{ 0,-3},/*up*/
 		{ 0, 3},/*down*/
@@ -103,7 +124,7 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 #define B_OCCUPIED (B_WALL+B_BASE+B_TANK)
 #define B_LOOKUP(o) (8 << (o))
 #define B_OPPOSITE(o) (8 << (o^1))
-#define B_ISCLEAR(b) (((b) & (B_OCCUPIED)) == B_EMPTY)
+#define B_ISCLEAR(b) (((b) & B_OCCUPIED) == B_EMPTY)
 #define B_ISBASE(b) (((b) & B_BASE) == B_BASE)
 #define B_ISOOB(b) (((b) & B_OOB) == B_OOB)
 
@@ -116,22 +137,6 @@ const int B_SPLASH_LOOKUP_TABLE[4][4][2] = {
 
 #define B_SPLASH(o,i,axis) B_SPLASH_LOOKUP_TABLE[(o)][(i)][(axis)]
 
-#define O_X 0
-#define O_Y 1
-
-#define O_UP 0
-#define O_DOWN 1
-#define O_LEFT 2
-#define O_RIGHT 3
-
-const int O_LOOKUP_TABLE[4][2] = {
-		{0,-1},/*up*/
-		{0,1},/*down*/
-		{-1,0},/*left*/
-		{1,0}/*right*/};
-
-#define O_LOOKUP(o,axis) O_LOOKUP_TABLE[(o)][(axis)]
-#define O_OPPOSITE(o) ((o)^1)
 
 // o == orientation, i == 1-5, axis == X or Y
 #define MOVEPATH_LOOKUP(o,i,axis) BUMP_LOOKUP_TABLE[(o)][(i)][(axis)]

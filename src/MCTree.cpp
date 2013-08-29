@@ -15,6 +15,8 @@
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <iostream>
+#include <iomanip>
 
 #define DEBUG 0
 #define ASSERT 1
@@ -280,12 +282,12 @@ void MCTree::expand_all(tree_size_t node_id, PlayoutState& node_state, UtilitySc
 
 void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState& node_state, UtilityScores &u, vector<Move>& path, vector<double>& results)
 {
-	list<tree_size_t> new_children[36][36];
+	list<tree_size_t> candidate_children[36][36];
 
 	unsigned int i,j;
 	unsigned int t0,t1,t2,t3;
 
-	if (unallocated_count < 36*36) {
+	if (unallocated_count < (width*width*width*width)) {
 		//TODO: Revert to playouts only
 		cerr << "Ran out of tree!" << endl;
 		return; //Silently fail
@@ -297,20 +299,42 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		//This is the first time we're trying to expand this node. Set all children to UNEXPLORED;
 		memset(&tree[node_id].child,0,sizeof(tree[node_id].child));
 		//Calculate the move order.
-		node_state.populateUtilityScores(u);
+		//node_state.populateUtilityScores(u);
 		pair<int,int> cmd_and_utility;
-		vector< pair<int,int> > cmd_and_utilities(6);
+		vector< pair<int,int> > cmd_and_utilities(4);
 		for (i = 0; i < 4; i++) {
 			if (node_state.tank[i].active) {
-				for (j = 0; j < 6; j++) {
-					cmd_and_utility.first = j;
-					cmd_and_utility.second = node_state.cmdToUtility(j,i,u);
+				//Get the cost of the moves
+				for (j = 0; j < 4; j++) {
+					cmd_and_utility.first = j+C_UP;
+					cmd_and_utility.second = node_state.cmdToUtility(j+C_UP,i,u);
 					cmd_and_utilities[j] = cmd_and_utility;
 				}
+
 				sort(cmd_and_utilities.begin(), cmd_and_utilities.end(), sort_pair_second<int, int>());
-				for (j = 0; j < 4; j++) {
-					tree[node_id].cmd_order[i][j] = (unsigned char) cmd_and_utilities[j].first;
+				if (!node_state.bullet[i].active) {
+					if (cmd_and_utilities[0].second < node_state.cmdToUtility(C_FIRE,i,u)) {
+						//Move then fire
+						tree[node_id].cmd_order[i][0] = (unsigned char) cmd_and_utilities[0].first;
+						tree[node_id].cmd_order[i][1] = (unsigned char) C_FIRE;
+					} else {
+						//Fire then move
+						tree[node_id].cmd_order[i][0] = (unsigned char) C_FIRE;
+						tree[node_id].cmd_order[i][1] = (unsigned char) cmd_and_utilities[0].first;
+					}
+					for (j = 1; j < 4; j++) {
+						tree[node_id].cmd_order[i][j+1] = (unsigned char) cmd_and_utilities[j].first;
+					}
+					//Do nothing only at last resort
+					tree[node_id].cmd_order[i][5] = C_NONE;
+				} else {
+					for (j = 0; j < 4; j++) {
+						tree[node_id].cmd_order[i][j] = (unsigned char) cmd_and_utilities[j].first;
+					}
+					tree[node_id].cmd_order[i][4] = C_NONE;
+					tree[node_id].cmd_order[i][5] = C_FIRE;
 				}
+
 			} else {
 				for (j = 0; j < 6; j++) {
 					tree[node_id].cmd_order[i][j] = j;
@@ -318,6 +342,20 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 			}
 		}
 	}
+
+#if ASSERT
+
+	long int total_allocated_nodes = 0;
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			total_allocated_nodes += allocated_count[i][j];
+		}
+	}
+	if ((total_allocated_nodes + unallocated_count) != (tree_size-2)) {
+		cerr << "before creating tasks:" << endl;
+		cerr << "tree size: " << tree_size << " t_a_n: " << total_allocated_nodes << " u_c: " << unallocated_count << endl;
+	}
+#endif
 
 	unsigned int count_tasks = 0;
 	task_mutex.lock();
@@ -328,8 +366,8 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 					i = t0+6*t1;
 					j = t2+6*t3;
 					if (child_unexplored(tree[node_id].child[i][j])) {
-						new_children[i][j].splice(new_children[i][j].begin(),unallocated,unallocated.begin());
-						tree[node_id].child[i][j] = new_children[i][j].front();
+						candidate_children[i][j].splice(candidate_children[i][j].begin(),unallocated,unallocated.begin());
+						tree[node_id].child[i][j] = candidate_children[i][j].front();
 						tasks[task_last].child_ptr = &tree[node_id].child[i][j];
 						tasks[task_last].alpha = i;
 						tasks[task_last].beta = j;
@@ -360,7 +398,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	int& root_alpha = path[0].alpha;
 	int& root_beta = path[0].beta;
 
-	int count_results = 0;
+	unsigned int count_results = 0;
 	task_result_mutex.lock();
 	while (task_result_first != task_result_last) {
 		count_results++;
@@ -372,8 +410,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 			//in the chain.
 			allocated[root_alpha][root_beta].splice(
 					allocated[root_alpha][root_beta].begin(),
-					new_children[r.alpha][r.beta],
-					new_children[r.alpha][r.beta].begin());
+					candidate_children[r.alpha][r.beta]);
 			unallocated_count--;
 			allocated_count[root_alpha][root_beta]++;
 			//store results for backprop
@@ -381,12 +418,26 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		} else {
 			//worker returned pruned move, send the node back to unallocated
 			unallocated.splice(unallocated.begin(),
-					new_children[r.alpha][r.beta],
-					new_children[r.alpha][r.beta].begin());
+					candidate_children[r.alpha][r.beta]);
 		}
 		task_result_first = (task_result_first + 1) % RESULT_RING_SIZE;
 	}
 	task_result_mutex.unlock();
+#if ASSERT
+	if (count_tasks != count_results) {
+		cerr << "Had " << count_tasks << " tasks but only " << count_results << " results!" << endl;
+	}
+	total_allocated_nodes = 0;
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			total_allocated_nodes += allocated_count[i][j];
+		}
+	}
+	if ((total_allocated_nodes + unallocated_count) != (tree_size-2)) {
+		cerr << "after getting results:" << endl;
+		cerr << "tree size: " << tree_size << " t_a_n: " << total_allocated_nodes << " u_c: " << unallocated_count << endl;
+	}
+#endif
 	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
 #if DEBUG
 	cout << "[" << node_id << "] expanded to: " << (int)tree[node_id].expanded_to << endl;
@@ -452,6 +503,7 @@ void MCTree::redistribute(vector<Move>& path)
 				frontier.pop();
 				allocated[root_alpha][root_beta].push_back(current);
 				allocated_count[root_alpha][root_beta]++;
+				unallocated_count--;
 				if (tree[current].r.count() > 1 && !tree[current].terminal) {
 					for (i = 0; i < 36; i++) {
 						for (j = 0; j < 36; j++) {
@@ -480,13 +532,39 @@ void MCTree::backprop(vector<Move>& path,vector<double>& result)
 	}
 }
 
+unsigned int MCTree::best_alpha()
+{
+	unsigned int alpha,beta;
+
+	alpha = C_TO_ALPHA(tree[root_id].cmd_order[0][0],tree[root_id].cmd_order[1][0]);
+	beta = C_TO_BETA(tree[root_id].cmd_order[2][0],tree[root_id].cmd_order[3][0]);
+	double mean;
+	double bestmean = tree[tree[root_id].child[alpha][beta]].r.mean();
+	double basemean = bestmean+0.1;
+	double margin = 0.0;
+	unsigned int bestalpha = alpha;
+	//cout << "R matrix:" << endl;
+	for (alpha = 0; alpha < 36; alpha++) {
+		for (beta = 0; beta < 36; beta++) {
+			//cout << setw(5) << setprecision(2) << tree[tree[root_id].child[alpha][beta]].r.mean();
+			mean = tree[tree[root_id].child[alpha][beta]].r.mean();
+			if (mean > bestmean && (mean - bestmean) > basemean && tree[tree[root_id].child[alpha][beta]].r.count() > 2 ) {
+				margin = mean - bestmean;
+				bestmean = mean;
+				bestalpha = alpha;
+			}
+		}
+		//cout << endl;
+	}
+	cout << "Best count by margin: " << margin << endl;
+	return bestalpha;
+}
+
 void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 {
 	vector<Move> path;
 	vector<double> results;
-	sfmt_t sfmt;
 	Move zero;
-	PlayoutState tmp_playout;
 	unsigned int i,j;
 
 	unallocated.clear();
@@ -509,10 +587,9 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	root_state.drawBases();
 	root_state.drawTanks();
 	root_state.drawBullets();
-	memcpy(&tmp_playout,&root_state,sizeof(tmp_playout));
-	sfmt_init_gen_rand(&sfmt, (uint32_t)(time(NULL)));
+	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
 	tree[root_id].r.init();
-	tree[root_id].r.push(tmp_playout.playout(sfmt));
+	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));
 	tree[root_id].terminal = false;
 	zero.alpha = 0;
 	zero.beta = 0;
@@ -527,6 +604,46 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	backprop(path,results);
 
 }
+
+void MCTree::reset(PlayoutState& reference_state, UtilityScores& reference_u)
+{
+	vector<Move> path;
+	vector<double> results;
+	Move zero;
+	unsigned int i,j;
+
+	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
+	memset(allocated_count,0,sizeof(allocated_count));
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			unallocated.splice(unallocated.begin(),
+					allocated[i][j]);
+		}
+
+	}
+
+	memcpy(&root_state,&reference_state,sizeof(root_state));
+	root_state = reference_state;
+	root_state.drawBases();
+	root_state.drawTanks();
+	root_state.drawBullets();
+	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
+	tree[root_id].r.init();
+	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));
+	tree[root_id].terminal = false;
+	zero.alpha = 0;
+	zero.beta = 0;
+	path.push_back(zero);
+	tree[root_id].expanded_to = 0;
+	//no need to select when priming root
+	expand_all(root_id,root_state,reference_u,path,results);
+	//only necessary to redistribute when priming root or promoting a node to root
+	redistribute(path);
+	//Only backprop to root!
+	path.clear();
+	backprop(path,results);
+}
+
 
 MCTree::MCTree()
 {

@@ -56,6 +56,42 @@ inline ns1__action hton_cmd(int cmd) {
 	}
 }
 
+inline const char* action2str(ns1__action action) {
+	switch (action) {
+	default:
+	case ns1__action__NONE:
+		return "none";
+	case ns1__action__UP:
+		return "up";
+	case ns1__action__DOWN:
+		return "down";
+	case ns1__action__LEFT:
+		return "left";
+	case ns1__action__RIGHT:
+		return "right";
+	case ns1__action__FIRE:
+		return "fire";
+	}
+}
+
+inline const char* cmd2str(int cmd) {
+	switch (cmd) {
+	default:
+	case C_NONE:
+		return "none";
+	case C_UP:
+		return "up";
+	case C_DOWN:
+		return "down";
+	case C_LEFT:
+		return "left";
+	case C_RIGHT:
+		return "right";
+	case C_FIRE:
+		return "fire";
+	}
+}
+
 inline int ntoh_direction(enum ns1__direction *direction) {
 	//TODO: Direction is probably static_cast<int>(*direction)-1;
 	if (direction) {
@@ -152,7 +188,8 @@ void NetworkCore::play()
 	StatCounter stat_getstatus;
 	StatCounter stat_setaction;
 	platformstl::performance_counter soap_timer;
-	platformstl::performance_counter processing_timer;
+	platformstl::performance_counter comms_timer;
+	platformstl::performance_counter ai_timer;
 	bool its_me;
 	int num_recv,player_offset,check;
 	TankState received_tanks[2];
@@ -171,7 +208,7 @@ void NetworkCore::play()
 	stat_setaction.init();
 
 	while (soaperr == SOAP_OK) {
-		processing_timer.restart();
+		comms_timer.restart();
 		ns1__getStatus getStatus_req;
 		ns1__getStatusResponse getStatus_resp;
 		soap_timer.restart();
@@ -543,9 +580,11 @@ void NetworkCore::play()
 #endif
 			} //if events
 
+			state.populateUtilityScores(*u);
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
-				state.populateUtilityScores(*u);
+				mc_tree->init(state,*u);
+			} else {
 				mc_tree->init(state,*u);
 			}
 			state_synced = true;
@@ -572,12 +611,11 @@ void NetworkCore::play()
 			continue;
 		}
 		s.destroy();
-		state.populateUtilityScores(*u);
-		processing_timer.stop();
+		comms_timer.stop();
 
 #if DEBUG
 		cout << "GetStatus [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_getstatus.mean() << " ms]" << endl;
-		cout << "full processing time was [" << processing_timer.get_milliseconds() << " ms] " << endl;
+		cout << "full processing time was [" << comms_timer.get_milliseconds() << " ms] " << endl;
 #endif
 		if (repeated_tick) {
 			//Wait a little bit longer next time;
@@ -604,17 +642,13 @@ void NetworkCore::play()
 		}
 
 		//At this point, we should be synced, settled and have a window to do work
-		int64_t window = nexttick-processing_timer.get_milliseconds()-safety_margin;
+		int64_t window = nexttick-comms_timer.get_milliseconds()-safety_margin;
 #if DEBUG
-		cout << "delaying for [" << nexttick << "-" << processing_timer.get_milliseconds() << "-" << safety_margin << " ms] = " << window  << " ms"<< endl;
-#endif
-		if (window > 0) {
-			Sleep((uint32_t)(window));
-		}
-#if DEBUG
-		cout << "Finished delaying, next tick should be imminent!" << endl;
+		cout << "Expecting next tick at [" << nexttick << "-" << comms_timer.get_milliseconds() << "-" << safety_margin << " ms] = " << window  << " ms"<< endl;
 #endif
 		if (soaperr == SOAP_OK) {
+			ai_timer.restart();
+
 			int64_t sleeptime;
 			int tankid;
 			ns1__setAction setAction_req;
@@ -622,9 +656,17 @@ void NetworkCore::play()
 			ns1__setActions setActions_req;
 			ns1__setActionsResponse setActions_resp;
 			ns1__action action[2];
+			tree_size_t node_id;
+			PlayoutState node_state;
+			vector<Move> path;
+			vector<double> results;
+			unsigned char width = 3;
+			unsigned int alpha;
+
 			sleeptime = safety_margin;
 
 			switch (policy) {
+			case POLICY_MCTS:
 			case POLICY_GREEDY:
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
@@ -641,6 +683,45 @@ void NetworkCore::play()
 						action[tankid] = hton_cmd(bestcmd);
 					}
 				}
+#if DEBUG
+				cout << "Greedy chose";
+				for (i = 0; i < 2; i++) {
+					if (state.tank[i].active) {
+						cout << " tank[" << i << "]: " << action2str(action[i]);
+					}
+				}
+				cout << endl;
+#endif
+				if (policy == POLICY_GREEDY) {
+					break;
+				}
+
+#if DEBUG
+				cout << "Root node ordering:" << endl;
+				for (i = 0; i < 4; i++) {
+					cout << "tank[" << i << "]{";
+					for (j = 0; j < 6; j++) {
+						cout << " " << cmd2str(mc_tree->tree[mc_tree->root_id].cmd_order[i][j]);
+					}
+					cout << " }" << endl;
+				}
+#endif
+				width = 2;
+				for (i = 0; i < 500; i++) {
+					path.clear();
+					results.clear();
+					node_state = mc_tree->root_state;
+					node_id = mc_tree->root_id;
+
+					mc_tree->select(width,path,node_id,node_state);
+
+					mc_tree->expand_some(width,node_id,node_state,*u,path,results);
+
+					mc_tree->backprop(path,results);
+				}
+				alpha = mc_tree->best_alpha();
+				action[0] = hton_cmd(C_T0(alpha,0));
+				action[1] = hton_cmd(C_T1(alpha,0));
 				break;
 			default:
 			case POLICY_RANDOM:
@@ -660,6 +741,29 @@ void NetworkCore::play()
 				break;
 			}
 
+			ai_timer.stop();
+			if (ai_timer.get_milliseconds() < window) {
+				window -= ai_timer.get_milliseconds();
+			} else {
+				cerr << "OVERRAN WINDOW!" << endl;
+			}
+#if DEBUG
+			cout << "AI took " << ai_timer.get_milliseconds() << " ms, shortening the window to: " << window << endl;
+			cout << "AI chose";
+			for (i = 0; i < 2; i++) {
+				if (state.tank[i].active) {
+					cout << " tank[" << i << "]: " << action2str(action[i]);
+				}
+			}
+			cout << endl;
+#endif
+			if (window > 0) {
+				Sleep((uint32_t)(window));
+			}
+
+#if DEBUG
+			cout << "Finished delaying, next tick should be imminent!" << endl;
+#endif
 			for (tankid = 0; tankid < 2; tankid++) {
 				if (state.tank[tankid].active) {
 					setAction_req.arg0 = state.tank[tankid].id;
