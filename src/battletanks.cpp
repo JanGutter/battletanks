@@ -78,6 +78,7 @@ int main(int argc, char** argv) {
 		UtilityScores* u = new UtilityScores;
 		tree_size_t node_id;
 		PlayoutState node_state;
+		PlayoutState tmp_state;
 		vector<Move> path;
 		vector<double> results;
 		int64_t looptime = 0;
@@ -97,6 +98,8 @@ int main(int argc, char** argv) {
 		utility_stat.push((double)utility_timer.get_milliseconds());
 		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
 #endif
+		tmp_state = node_state;
+		tmp_state.updateCanFire(node_state);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
 		width = 3;
@@ -104,7 +107,7 @@ int main(int argc, char** argv) {
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
 		overall_timer.restart();
-		for (i = 0; looptime < 2500000; i++) {
+		for (i = 0; i < 10 || looptime < 2500000; i++) {
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;

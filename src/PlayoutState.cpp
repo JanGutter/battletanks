@@ -30,6 +30,16 @@ void PlayoutState::drawTanks()
 	}
 }
 
+void PlayoutState::drawTinyTanks()
+{
+	int t;
+	for (t = 0; t < 4; t++) {
+		if (tank[t].active) {
+			drawTinyTank(t, B_TANK);
+		}
+	}
+}
+
 void PlayoutState::drawBases()
 {
 	int i;
@@ -63,6 +73,11 @@ bool PlayoutState::insideTank(const int t, const int x, const int y)
 	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
 }
 
+bool PlayoutState::insideTinyTank(const int t, const int x, const int y)
+{
+	return (tank[t].active && (abs(tank[t].x - x) < 2) && (abs(tank[t].y - y) < 2));
+}
+
 bool PlayoutState::isTankAt(const int t, const int x, const int y)
 {
 	return (tank[t].active && tank[t].x == x && tank[t].y == y);
@@ -73,6 +88,16 @@ void PlayoutState::drawTank(const int t, const int block)
 	int i,j;
 	for (i = tank[t].x-2; i < tank[t].x+3; i++) {
 		for (j = tank[t].y-2; j < tank[t].y+3; j++) {
+			board[i][j] = block;
+		}
+	}
+}
+
+void PlayoutState::drawTinyTank(const int t, const int block)
+{
+	int i,j;
+	for (i = tank[t].x-1; i < tank[t].x+2; i++) {
+		for (j = tank[t].y-1; j < tank[t].y+2; j++) {
 			board[i][j] = block;
 		}
 	}
@@ -255,6 +280,56 @@ void PlayoutState::checkCollisions()
 	}
 }
 
+void PlayoutState::checkDestroyedBullets()
+//This checks if the bullet might be destroyed in the next turn.
+//It's not 100% accurate: it will return some false negatives and positives, depending on weird situations.
+//Hopefully they are rare.
+{
+	int i,j,square,other_bullet,prevsquare;
+
+	for (i = 0; i < 4; i++) {
+		bullet[i].tag = 0;
+	}
+	for (i = 0; i < 4; i++) {
+		tank[i].tag = 0;
+	}
+
+	for (i = 0; i < 4; i++) {
+		if (bullet[i].active) {
+			prevsquare = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)];
+			//If the bullet passed another one in the opposite direction, it's tagged for removal;
+			bullet[i].tag = prevsquare & B_OPPOSITE(bullet[i].o);
+			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
+			square = board[bullet[i].x][bullet[i].y] & (B_OCCUPIED);
+			if (square == B_TANK) {
+				j = 0;
+				while ((j < 3) && !insideTinyTank(j,bullet[i].x,bullet[i].y)) {
+					j++;
+				}
+				tank[j].tag = 1;
+				bullet[i].active = 0;
+			}
+			if (other_bullet) {
+				bullet[i].tag = 1;
+			}
+		}
+	}
+
+	//Erase tagged bullets
+	for (i = 0; i < 4; i++) {
+		if (bullet[i].active && bullet[i].tag) {
+			board[bullet[i].x][bullet[i].y] = B_EMPTY;
+			bullet[i].active = 0;
+		}
+	}
+	//Erase tagged tanks
+	for (i = 0; i < 4; i++) {
+		if (tank[i].tag) {
+			drawTinyTank(i, B_EMPTY);
+			tank[i].active = 0;
+		}
+	}
+}
 
 void PlayoutState::simulateTick()
 {
@@ -278,26 +353,21 @@ void PlayoutState::simulateTick()
 	checkCollisions();
 }
 
-void PlayoutState::updateCanFire()
+void PlayoutState::updateCanFire(PlayoutState &p)
+//Should be called by a temporary class! Destroys state!
 //This is not 100% effective, but a good heuristic.
 {
-	int i,x1,y1,x2,y2;
+	int i;
 	for (i = 0; i < 4; i++) {
-		if (bullet[i].active) {
-			tank[i].canfire = 0;
-			x1 = bullet[i].x + O_LOOKUP(bullet[i].o,O_X);
-			y1 = bullet[i].x + O_LOOKUP(bullet[i].o,O_Y);
-			x2 = bullet[i].x + 2*O_LOOKUP(bullet[i].o,O_X);
-			y2 = bullet[i].x + 2*O_LOOKUP(bullet[i].o,O_Y);
-			if (insideBounds(x1,y1)) {
-				tank[i].canfire = board[x1][y1] != B_EMPTY;
-				if (!tank[i].canfire && insideBounds(x2,y2)) {
-					tank[i].canfire = board[x2][y2] != B_EMPTY;
-				}
-			}
-		} else {
-			tank[i].canfire = 1;
-		}
+		drawTank(i,B_EMPTY);
+	}
+	drawTinyTanks();
+	moveBullets();
+	checkDestroyedBullets();
+	moveBullets();
+	checkDestroyedBullets();
+	for (i = 0; i < 4; i++) {
+		p.tank[i].canfire = !bullet[i].active;
 	}
 }
 
@@ -310,17 +380,40 @@ void PlayoutState::move(Move& m)
 	simulateTick();
 }
 
-double PlayoutState::playout(sfmt_t& sfmt)
+double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 {
-	int move,i;
+	int move,tankid,c,bestcmd,bestcost,cost;
 	int maxmove = endgame_tick+(max_x/2)-tickno;
 	winner = W_DRAW;
 	for (move = 0; move < maxmove; move++) {
-		updateCanFire();
-		for (i = 0; i < 4; i++) {
-			//command[i] = tank[i].active * (sfmt_genrand_uint32(&sfmt) % 6)
-			command[i] = tank[i].active * ((tank[i].canfire)*(sfmt_genrand_uint32(&sfmt) % 6)
-					+ (1-tank[i].canfire)*(sfmt_genrand_uint32(&sfmt) % 4));
+		for (tankid = 0; tankid < 4; tankid++) {
+			if (sfmt_genrand_uint32(&sfmt) % 100 < (EPSILON_GREEDY-1)) {
+				//Expensive version
+				//PlayoutState tmp_state = *this;
+				//tmp_state.updateCanFire(*this);
+				//EPSILON_GREEDY% of the moves are "greedy" moves.
+				for (tankid = 0; tankid < 4; tankid++) {
+					if (tank[tankid].active) {
+						//Cheap version
+						tank[tankid].canfire = !bullet[tankid].active;
+						bestcmd = C_FIRE;
+						bestcost = INT_MAX;
+						for (c = 0; c < 6; c++) {
+							cost = cmdToUtility(c,tankid,u);
+							if (cost < bestcost) {
+								bestcost = cost;
+								bestcmd = c;
+							}
+						}
+						command[tankid] = bestcmd;
+					}
+				}
+			} else {
+				//Random playout
+				command[tankid] = sfmt_genrand_uint32(&sfmt) % 6;
+				//command[tankid] = tank[tankid].active * ((tank[tankid].canfire)*(sfmt_genrand_uint32(&sfmt) % 6)
+				//		+ (1-tank[tankid].canfire)*(sfmt_genrand_uint32(&sfmt) % 4));
+			}
 		}
 		simulateTick();
 		if (gameover) {

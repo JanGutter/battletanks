@@ -52,6 +52,7 @@ struct expand_result_t {
 class MCTree {
 public:
 	PlayoutState root_state;
+	UtilityScores root_u;
 	tree_size_t root_id;
 	tree_size_t tree_size;
 	Node* tree;

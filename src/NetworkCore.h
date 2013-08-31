@@ -27,6 +27,7 @@ using namespace std;
 class NetworkCore {
 private:
 	PlayoutState state;
+	PlayoutState tmp_state;
 	UtilityScores u;
 	ChallengeServiceSoapBindingProxy s;
 	string myname;

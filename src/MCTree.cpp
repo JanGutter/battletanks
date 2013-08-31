@@ -175,7 +175,8 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 			tree[*task->child_ptr].terminal = true;
 		} else {
 			tree[*task->child_ptr].terminal = false;
-			child_state[threadid].playout(worker_sfmt[threadid]);
+			//TODO: should probably be node_utility rather than root_u
+			child_state[threadid].playout(worker_sfmt[threadid],root_u);
 		}
 		tree[*task->child_ptr].expanded_to = 0;
 		tree[*task->child_ptr].r.init();
@@ -447,6 +448,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state)
 {
 	Move m;
+	int i;
 #if DEBUG
 	cout << "Select at node: " << node_id << endl;
 #endif
@@ -460,7 +462,10 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 			path.push_back(m);
 			node_id = tree[node_id].child[m.alpha][m.beta];
 			node_state.move(m);
-			node_state.updateCanFire();
+			//TODO: Maybe propagate more expensive logic here?
+			for (i = 0; i < 4; i++) {
+				node_state.tank[i].canfire = !node_state.bullet[i].active;
+			}
 		} else {
 			cerr << "Oops, select alpha/beta is invalid! [" << node_id << "]" << endl;
 			break;
@@ -588,10 +593,10 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	root_state.drawBases();
 	root_state.drawTanks();
 	root_state.drawBullets();
-	root_state.updateCanFire();
+	root_u = reference_u;
 	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
 	tree[root_id].r.init();
-	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));
+	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0],root_u));
 	tree[root_id].terminal = false;
 	zero.alpha = 0;
 	zero.beta = 0;
@@ -629,10 +634,10 @@ void MCTree::reset(PlayoutState& reference_state, UtilityScores& reference_u)
 	root_state.drawBases();
 	root_state.drawTanks();
 	root_state.drawBullets();
-	root_state.updateCanFire();
+	root_u = reference_u;
 	memcpy(&child_state[0],&root_state,sizeof(child_state[0]));
 	tree[root_id].r.init();
-	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0]));
+	tree[root_id].r.push(child_state[0].playout(worker_sfmt[0],root_u));
 	tree[root_id].terminal = false;
 	zero.alpha = 0;
 	zero.beta = 0;

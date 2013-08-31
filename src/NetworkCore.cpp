@@ -581,6 +581,8 @@ void NetworkCore::play()
 			} //if events
 
 			state.populateUtilityScores(*u);
+			tmp_state = state;
+			tmp_state.updateCanFire(state);
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
 				mc_tree->init(state,*u);
