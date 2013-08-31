@@ -26,7 +26,7 @@ struct Move {
 	int beta;
 };
 
-//1 in 10 moves in the random playout uses the greedy algorithm
+//2 in 10 moves in the random playout uses the greedy algorithm
 #define EPSILON_GREEDY 20
 
 #define PLAYER0 0

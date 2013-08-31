@@ -134,6 +134,8 @@ NetworkCore::NetworkCore(const char* soap_endpoint)
 void NetworkCore::login() {
 	//TODO: Need to loop to re-attempt login
 	int square;
+	state.min_x = 0;
+	state.min_y = 0;
 	state.max_x = 0;
 	ns1__login login_req;
 	ns1__loginResponse login_resp;
@@ -178,7 +180,8 @@ void NetworkCore::login() {
 	memcpy(p.board,board,sizeof(board));
 	cout << p;*/
 	//TODO: Need to know when endgame begins!
-	state.gameover = 0;
+	state.gameover = false;
+	state.stop_playout = false;
 	state.endgame_tick = 200;
 }
 

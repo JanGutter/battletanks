@@ -86,7 +86,8 @@ int main(int argc, char** argv) {
 		ifstream fin("board1.map");
 		fin >> node_state;
 		node_state.endgame_tick = 200;
-		node_state.gameover = 0;
+		node_state.gameover = false;
+		node_state.stop_playout = false;
 		fin.close();
 #if BENCHMARK
 		cout << "Populating utility scores..." << endl;

@@ -63,7 +63,9 @@ public:
 	unsigned char board[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
 	int min_x,min_y;
 	int max_x,max_y;
-	int gameover;
+	bool gameover;
+	bool stop_playout;
+	double state_score;
 	double winner;
 	int endgame_tick;
 	void drawTanks();

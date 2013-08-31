@@ -60,12 +60,12 @@ void PlayoutState::drawBullets()
 
 bool PlayoutState::insideBounds(const int x, const int y)
 {
-	return (x > 0 && y > 0 && x < max_x && y < max_y);
+	return (x > min_x && y > min_y && x < max_x && y < max_y);
 }
 
 bool PlayoutState::isTankInsideBounds(const int x, const int y)
 {
-	return (x > 1 && y > 1 && x < (max_x-2) && y < (max_y-2));
+	return (x > min_x+1 && y > min_y+1 && x < (max_x-2) && y < (max_y-2));
 }
 
 bool PlayoutState::insideTank(const int t, const int x, const int y)
@@ -158,6 +158,8 @@ void PlayoutState::moveTanks()
 						board[newx+BUMP_OPPOSITE(c,j,C_X)][newy+BUMP_OPPOSITE(c,j,C_Y)] ^= B_TANK;
 					}
 				}
+			} else {
+				tank[t].active = 0;
 			}
 		}
 	}
@@ -183,13 +185,17 @@ void PlayoutState::fireTanks()
 
 void PlayoutState::checkCollisions()
 {
-	int i,j,square,other_bullet,x,y,active_tanks,active_bullets,prevsquare;
+	int i,j,square,other_bullet,x,y,enemy_tanks,friendly_tanks,active_bullets,prevsquare;
 
 	for (i = 0; i < 4; i++) {
 		bullet[i].tag = 0;
 	}
 	for (i = 0; i < 4; i++) {
-		tank[i].tag = 0;
+		if (isTankInsideBounds(tank[i].x,tank[i].y)) {
+			tank[i].tag = 0;
+		} else {
+			tank[i].tag = 1;
+		}
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -235,16 +241,12 @@ void PlayoutState::checkCollisions()
 					winner = W_DRAW; //It's at least a draw
 					if ((base[PLAYER0].x == bullet[i].x) && (base[PLAYER0].y == bullet[i].y)) {
 						//Player0's base has been destroyed
-						if (!gameover) {
-							winner = W_PLAYER1;
-						}
+						winner = W_PLAYER1;
 					} else {
 						//Player1's base has been destroyed
-						if (!gameover) {
-							winner = W_PLAYER0;
-						}
+						winner = W_PLAYER0;
 					}
-					gameover = 1;
+					gameover = true;
 				}
 			} else if (other_bullet) {
 				//It's an empty square with at least one other bullet
@@ -267,17 +269,30 @@ void PlayoutState::checkCollisions()
 			tank[i].active = 0;
 		}
 	}
+	stop_playout = false;
 	//Check for draw (no tanks and no bullets)
 	if (!gameover) {
-		active_tanks = 0;
+		friendly_tanks = 0;
+		enemy_tanks = 0;
 		active_bullets = 0;
-		for (i = 0; i < 4; i++) {
-			active_tanks += tank[i].active;
+		for (i = 0; i < 2; i++) {
+			friendly_tanks += tank[i].active;
 			active_bullets += bullet[i].active;
 		}
-		gameover = (active_tanks == 0) && (active_bullets == 0);
+		for (i = 2; i < 4; i++) {
+			enemy_tanks += tank[i].active;
+			active_bullets += bullet[i].active;
+		}
+		gameover = ((friendly_tanks+enemy_tanks) == 0) && (active_bullets == 0);
+		state_score = friendly_tanks*0.25 - enemy_tanks*0.25 + 0.5;
+		if (friendly_tanks != enemy_tanks) {
+			stop_playout = true;
+		}
 		winner = W_DRAW;
+	} else {
+		state_score = winner;
 	}
+
 }
 
 void PlayoutState::checkDestroyedBullets()
@@ -334,7 +349,11 @@ void PlayoutState::checkDestroyedBullets()
 void PlayoutState::simulateTick()
 {
 	tickno++;
-	//TODO: check for endgame_tick here!
+
+	if (tickno >= endgame_tick) {
+		min_x++;
+		max_x--;
+	}
 
 	moveBullets();
 	checkCollisions();
@@ -417,10 +436,13 @@ double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 		}
 		simulateTick();
 		if (gameover) {
-			break;
+			return winner;
+		}
+		if (stop_playout) {
+			return state_score;
 		}
 	}
-	return winner;
+	return state_score;
 }
 
 bool PlayoutState::clearTrajectory(int x, int y, int o, int t_x, int t_y)
@@ -664,6 +686,8 @@ istream &operator>>(istream &input, PlayoutState &p)
 		input >> p.base[i].x
 		>> p.base[i].y;
 	}
+	p.min_x = 0;
+	p.min_y = 0;
 	input >> p.max_x >> p.max_y;
 	for (i = 0; i < p.max_x; i++) {
 		for (j = 0; j < p.max_y; j++) {

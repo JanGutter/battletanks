@@ -449,6 +449,7 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 {
 	Move m;
 	int i;
+	PlayoutState tmp_state;
 #if DEBUG
 	cout << "Select at node: " << node_id << endl;
 #endif
@@ -462,10 +463,8 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 			path.push_back(m);
 			node_id = tree[node_id].child[m.alpha][m.beta];
 			node_state.move(m);
-			//TODO: Maybe propagate more expensive logic here?
-			for (i = 0; i < 4; i++) {
-				node_state.tank[i].canfire = !node_state.bullet[i].active;
-			}
+			tmp_state = node_state;
+			tmp_state.updateCanFire(node_state);
 		} else {
 			cerr << "Oops, select alpha/beta is invalid! [" << node_id << "]" << endl;
 			break;
