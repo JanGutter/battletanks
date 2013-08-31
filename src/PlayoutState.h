@@ -60,7 +60,8 @@ public:
 	TankState tank[4]; //Tank 0-1 belongs to PLAYER0, Tank 2-3 belongs to PLAYER1
 	BulletState bullet[4]; //(index is the same as tank[4])
 	BaseState base[2]; //Base 0 belongs to PLAYER0, Base 1 belongs to PLAYER1
-	int board[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+	unsigned char board[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+	int min_x,min_y;
 	int max_x,max_y;
 	int gameover;
 	double winner;

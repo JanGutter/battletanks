@@ -542,7 +542,7 @@ ostream &operator<<(ostream &output, const PlayoutState &p)
 
 istream &operator>>(istream &input, PlayoutState &p)
 {
-	int i,j;
+	int i,j,square;
 	pair<int,int> tank;
 	vector< pair<int,int> > tanks(4);
 	input >> p.tickno;
@@ -574,7 +574,8 @@ istream &operator>>(istream &input, PlayoutState &p)
 	input >> p.max_x >> p.max_y;
 	for (i = 0; i < p.max_x; i++) {
 		for (j = 0; j < p.max_y; j++) {
-			input >> p.board[i][j];
+			input >> square;
+			p.board[i][j] = (unsigned char)square;
 		}
 	}
 	return input;

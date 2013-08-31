@@ -110,7 +110,7 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 
 #define NUMMOVES 36 //Number of possible moves
 
-#define MAX_BATTLEFIELD_DIM 256 // 256x256 battlefield
+#define MAX_BATTLEFIELD_DIM 128 // 128x128 battlefield
 
 #define B_X 0
 #define B_Y 1

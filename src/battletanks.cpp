@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
 #endif
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 2;
+		width = 3;
 		cout << "width: " << width << endl;
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
