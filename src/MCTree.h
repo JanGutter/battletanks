@@ -112,6 +112,7 @@ public:
 	unsigned char expanded_to;
 	int alpha(MCTree& tree);
 	int beta(MCTree& tree);
+	void print(MCTree& tree);
 };
 
 

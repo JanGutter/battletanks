@@ -17,6 +17,7 @@
 #include <functional>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 
 #define DEBUG 0
 #define ASSERT 1
@@ -46,6 +47,48 @@ inline bool child_explored(tree_size_t child)
 	return (child > THREADID_PRUNED);
 }
 
+void Node::print(MCTree& tree)
+{
+	int i,j;
+
+	ofstream fout("count.dat");
+
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			if (child_explored(child[i][j])) {
+				fout << tree.tree[child[i][j]].r.count() << " ";
+			} else {
+				fout << "0 ";
+			}
+		}
+		fout << endl;
+	}
+	fout.close();
+	fout.open("mean.dat");
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			if (child_explored(child[i][j])) {
+				fout << tree.tree[child[i][j]].r.mean() << " ";
+			} else {
+				fout << "0.0 ";
+			}
+		}
+		fout << endl;
+	}
+	fout.close();
+	fout.open("variance.dat");
+	for (i = 0; i < 36; i++) {
+		for (j = 0; j < 36; j++) {
+			if (child_explored(child[i][j])) {
+				fout << tree.tree[child[i][j]].r.variance() << " ";
+			} else {
+				fout << "0.0 ";
+			}
+		}
+		fout << endl;
+	}
+
+}
 inline int Node::alpha(MCTree& tree)
 {
 	unsigned int t0,t1,t2,t3;
@@ -56,10 +99,11 @@ inline int Node::alpha(MCTree& tree)
 	double score;
 	double maxscore = W_PLAYER1;
 	int bestmove = -1;
-
+#if ASSERT
 	if (expanded_to < 2) {
-		cout << "expanded_to < 2 !" << endl;
+		cerr << "expanded_to < 2 !" << endl;
 	}
+#endif
 	for (t1 = 0; t1 < expanded_to; t1++) {
 		for (t0 = 0; t0 < expanded_to; t0++) {
 			t_ = 0;
@@ -141,7 +185,6 @@ inline int Node::beta(MCTree& tree)
 inline void MCTree::handle_task(int taskid, int threadid) {
 	expand_task_t* task = tasks+taskid;
 	int command[4];
-	int i;
 #if DEBUG > 2
 	cout << "Task started on node [" << *task->child_ptr << "] by thread " << threadid << endl;
 #endif
@@ -149,18 +192,6 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 	command[1] = C_T1(task->alpha,task->beta);
 	command[2] = C_T2(task->alpha,task->beta);
 	command[3] = C_T3(task->alpha,task->beta);
-	for (i = 0; i < 4; i++) {
-		//Prune illegal move
-		if (!task->parent_state->tank[i].active && command[i] != C_NONE) {
-			(*task->child_ptr) = THREADID_PRUNED;
-			break;
-		}
-		//Prune unnecessary move
-		if (!task->parent_state->tank[i].canfire && command[i] == C_FIRE) {
-			(*task->child_ptr) = THREADID_PRUNED;
-			break;
-		}
-	}
 
 #if ASSERT
 	if (*task->child_ptr == 0) {
@@ -180,7 +211,7 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 		}
 		tree[*task->child_ptr].expanded_to = 0;
 		tree[*task->child_ptr].r.init();
-		tree[*task->child_ptr].r.push(child_state[threadid].winner);
+		tree[*task->child_ptr].r.push(child_state[threadid].state_score);
 #if DEBUG > 2
 		cout << "Node [" << *task->child_ptr << "] result: " << tree[*task->child_ptr].r.mean() << endl;
 	} else {
@@ -283,10 +314,9 @@ void MCTree::expand_all(tree_size_t node_id, PlayoutState& node_state, UtilitySc
 
 void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState& node_state, UtilityScores &u, vector<Move>& path, vector<double>& results)
 {
-	list<tree_size_t> candidate_children[36][36];
 
-	unsigned int i,j;
-	unsigned int t0,t1,t2,t3;
+	unsigned int i,j,tankid;
+	unsigned int t[4];
 
 	if (unallocated_count < ((tree_size_t)width*width*width*width)) {
 		//TODO: Revert to playouts only
@@ -358,17 +388,40 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	}
 #endif
 
+	int& root_alpha = path[0].alpha;
+	int& root_beta = path[0].beta;
 	unsigned int count_tasks = 0;
 	task_mutex.lock();
-	for (t1 = 0; t1 < width; t1++) {
-		for (t0 = 0; t0 < width; t0++) {
-			for (t3 = 0; t3 < width; t3++) {
-				for (t2 = 0; t2 < width; t2++) {
-					i = t0+6*t1;
-					j = t2+6*t3;
+	for (t[1] = 0; t[1] < width; t[1]++) {
+		for (t[0] = 0; t[0] < width; t[0]++) {
+			for (t[3] = 0; t[3] < width; t[3]++) {
+				for (t[2] = 0; t[2] < width; t[2]++) {
+					i = t[0]+6*t[1];
+					j = t[2]+6*t[3];
 					if (child_unexplored(tree[node_id].child[i][j])) {
-						candidate_children[i][j].splice(candidate_children[i][j].begin(),unallocated,unallocated.begin());
-						tree[node_id].child[i][j] = candidate_children[i][j].front();
+						for (tankid = 0; tankid < 4; tankid++) {
+							if (!node_state.tank[tankid].active && t[tankid] != C_NONE) {
+								tree[node_id].child[i][j] = THREADID_PRUNED;
+								break;
+							}
+							if (!node_state.tank[tankid].canfire && t[tankid] == C_FIRE) {
+								tree[node_id].child[i][j] =  THREADID_PRUNED;
+								break;
+							}
+						}
+						if (tree[node_id].child[i][j] == THREADID_PRUNED) {
+							continue;
+						}
+						//the task returned a valid move and leads to a new leaf
+						//the node is now allocated to the first alpha/beta move
+						//in the chain.
+						tree[node_id].child[i][j] = unallocated.front();
+						allocated[root_alpha][root_beta].splice(
+								allocated[root_alpha][root_beta].begin(),
+								unallocated,
+								unallocated.begin());
+						unallocated_count--;
+						allocated_count[root_alpha][root_beta]++;
 						tasks[task_last].child_ptr = &tree[node_id].child[i][j];
 						tasks[task_last].alpha = i;
 						tasks[task_last].beta = j;
@@ -396,9 +449,6 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		task_result_mutex.unlock();
 	}
 
-	int& root_alpha = path[0].alpha;
-	int& root_beta = path[0].beta;
-
 	unsigned int count_results = 0;
 	task_result_mutex.lock();
 	while (task_result_first != task_result_last) {
@@ -406,20 +456,10 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		expand_result_t& r = task_results[task_result_first];
 		tree_size_t& child = tree[node_id].child[r.alpha][r.beta];
 		if (child_legalmove(child)) {
-			//the task returned a valid move and leads to a new leaf
-			//the node is now allocated to the first alpha/beta move
-			//in the chain.
-			allocated[root_alpha][root_beta].splice(
-					allocated[root_alpha][root_beta].begin(),
-					candidate_children[r.alpha][r.beta]);
-			unallocated_count--;
-			allocated_count[root_alpha][root_beta]++;
 			//store results for backprop
 			results.push_back(tree[child].r.mean());
 		} else {
-			//worker returned pruned move, send the node back to unallocated
-			unallocated.splice(unallocated.begin(),
-					candidate_children[r.alpha][r.beta]);
+			cerr << "Pruned move!";
 		}
 		task_result_first = (task_result_first + 1) % RESULT_RING_SIZE;
 	}
@@ -448,7 +488,6 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state)
 {
 	Move m;
-	int i;
 	PlayoutState tmp_state;
 #if DEBUG
 	cout << "Select at node: " << node_id << endl;
@@ -658,7 +697,7 @@ MCTree::MCTree()
 
 	//TODO: figure out a good value for tree_size
 	//tree_size = 100000l;
-	tree_size = 100000l;
+	tree_size = 150000l;
 	tree = new Node[tree_size];
 	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
 	for (i = 2; i < tree_size; i++) {

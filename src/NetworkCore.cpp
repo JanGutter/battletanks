@@ -17,6 +17,7 @@
 #include <limits.h>
 #include <StatCounter.hpp>
 #include "MCTree.h"
+#include <fstream>
 
 #define DEBUG 1
 
@@ -186,7 +187,6 @@ void NetworkCore::login() {
 }
 
 void NetworkCore::play()
-
 {
 	StatCounter stat_getstatus;
 	StatCounter stat_setaction;
@@ -206,6 +206,8 @@ void NetworkCore::play()
 	bool skipped_tick;
 	UtilityScores* u = new UtilityScores;
 	MCTree* mc_tree = new MCTree;
+
+	bool firstrun = true;
 
 	stat_getstatus.init();
 	stat_setaction.init();
@@ -593,6 +595,12 @@ void NetworkCore::play()
 				mc_tree->init(state,*u);
 			}
 			state_synced = true;
+			/*
+			if (firstrun) {
+				firstrun = false;
+				ofstream fout("btboard.map");
+				fout << state;
+			}*/
 
 #if DEBUG
 			cout << "milliseconds to next tick: " << getStatus_resp.return_->millisecondsToNextTick << endl;

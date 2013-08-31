@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
 		tmp_state.updateCanFire(node_state);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 3;
+		width = 4;
 		cout << "width: " << width << endl;
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
@@ -162,6 +162,7 @@ int main(int argc, char** argv) {
 #endif
 		cout << "Root " << mc_tree->tree[mc_tree->root_id].r.mean() << "/" << mc_tree->tree[mc_tree->root_id].r.variance() << "/" << mc_tree->tree[mc_tree->root_id].r.count() << endl;
 
+		mc_tree->tree[mc_tree->root_id].print(*mc_tree);
 		delete u;
 	}
 
