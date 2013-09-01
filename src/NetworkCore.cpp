@@ -19,7 +19,7 @@
 #include "MCTree.h"
 #include <fstream>
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define NUMC 10
 #define NUMPLAYERS 2
@@ -134,56 +134,59 @@ NetworkCore::NetworkCore(const char* soap_endpoint)
 
 void NetworkCore::login() {
 	//TODO: Need to loop to re-attempt login
-	int square;
-	state.min_x = 0;
-	state.min_y = 0;
-	state.max_x = 0;
-	ns1__login login_req;
-	ns1__loginResponse login_resp;
-	soaperr = s.login(&login_req, &login_resp);
-	if (soaperr == SOAP_OK) {
-		for (vector<ns1__stateArray*>::iterator boardx = login_resp.return_->states.begin(); boardx != login_resp.return_->states.end(); ++boardx) {
-			state.max_y = 0;
-			for (vector<ns1__state>::iterator boardy = (*boardx)->item.begin(); boardy != (*boardx)->item.end() ; ++boardy) {
+	do {
+		int square;
+		state.min_x = 0;
+		state.min_y = 0;
+		state.max_x = 0;
+		ns1__login login_req;
+		ns1__loginResponse login_resp;
+		soaperr = s.login(&login_req, &login_resp);
+		if (soaperr == SOAP_OK) {
+			for (vector<ns1__stateArray*>::iterator boardx = login_resp.return_->states.begin(); boardx != login_resp.return_->states.end(); ++boardx) {
+				state.max_y = 0;
+				for (vector<ns1__state>::iterator boardy = (*boardx)->item.begin(); boardy != (*boardx)->item.end() ; ++boardy) {
 #if DEBUG
-				cout << *boardy;
+					cout << *boardy;
 #endif
-				switch (*boardy) {
-				case ns1__state__FULL:
-					square = B_WALL;
-					break;
-				case ns1__state__OUT_USCOREOF_USCOREBOUNDS:
-					square = B_OOB;
-					break;
-				default:
-				case ns1__state__NONE:
-					cerr << "Warning, received NONE state on square!" << endl;
-				case ns1__state__EMPTY:
-					square = B_EMPTY;
+					switch (*boardy) {
+					case ns1__state__FULL:
+						square = B_WALL;
+						break;
+					case ns1__state__OUT_USCOREOF_USCOREBOUNDS:
+						square = B_OOB;
+						break;
+					default:
+					case ns1__state__NONE:
+						cerr << "Warning, received NONE state on square!" << endl;
+					case ns1__state__EMPTY:
+						square = B_EMPTY;
+					}
+					state.board[state.max_x][state.max_y] = square;
+					state.max_y++;
 				}
-				state.board[state.max_x][state.max_y] = square;
-				state.max_y++;
-			}
 #if DEBUG
-			cout << endl;
+				cout << endl;
 #endif
-			state.max_x++;
+				state.max_x++;
+			}
 		}
-	}
-	if (soaperr != SOAP_OK) {
-		s.soap_stream_fault(std::cerr);
-	}
-	state_synced = false;
-	/*PlayoutState p;
+		if (soaperr != SOAP_OK) {
+			s.soap_stream_fault(std::cerr);
+			Sleep(250);
+		}
+		state_synced = false;
+		/*PlayoutState p;
 	memset(&p,0,sizeof(p));
 	p.max_x = max_x;
 	p.max_y = max_y;
 	memcpy(p.board,board,sizeof(board));
 	cout << p;*/
-	//TODO: Need to know when endgame begins!
-	state.gameover = false;
-	state.stop_playout = false;
-	state.endgame_tick = 200;
+		//TODO: Need to know when endgame begins!
+		state.gameover = false;
+		state.stop_playout = false;
+		state.endgame_tick = 200;
+	} while (soaperr != SOAP_OK);
 }
 
 void NetworkCore::play()
@@ -707,6 +710,23 @@ void NetworkCore::play()
 #endif
 					}
 				}
+
+				if ((state.tank[2].active+state.tank[3].active) == 0 &&
+						(state.tank[0].active+state.tank[1].active) == 2) {
+#if DEBUG
+					cout << "GOING HALF-LIMP!" << endl;
+#endif
+					action[1] = ns1__action__NONE;
+				}
+
+#ifdef AREYOUNUTS
+				if (state.tickno > 55) {
+					cout << "GOING LIMP!" << endl;
+					action[0] = ns1__action__NONE;
+					action[1] = ns1__action__NONE;
+				}
+#endif
+
 #if DEBUG
 				cout << "Greedy chose";
 				for (i = 0; i < 2; i++) {

@@ -20,7 +20,7 @@
 #include <fstream>
 
 #define DEBUG 0
-#define ASSERT 1
+#define ASSERT 0
 
 inline double UCB1T_score_alpha(unsigned long int t_, double r_, double sigma_, double t)
 {
@@ -732,7 +732,7 @@ MCTree::MCTree()
 
 	//TODO: figure out a good value for tree_size
 	//tree_size = 100000l;
-	tree_size = 200000l;
+	tree_size = 50000l;
 	tree = new Node[tree_size];
 	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
 	for (i = 2; i < tree_size; i++) {

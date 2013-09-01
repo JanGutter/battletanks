@@ -88,6 +88,7 @@ public:
 	bool clearPath(int x, int y, int o);
 	bool clearablePath(int x, int y, int o);
 	bool insideTank(const unsigned int t, const int x, const int y);
+	bool insideAnyTank(const int x, const int y);
 	bool insideTinyTank(const int t, const int x, const int y);
 	bool onBase(const int b, const int x, const int y);
 	bool onTarget(const int t, const int x, const int y);

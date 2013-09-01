@@ -24,8 +24,8 @@
 #include <platformstl/performance/performance_counter.hpp>
 
 using namespace std;
-#define BENCHMARK 1
-
+#define BENCHMARK 0
+#define DEBUG 0
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
 #define MODE_SELFPLAY 3
@@ -33,9 +33,9 @@ using namespace std;
 int main(int argc, char** argv) {
 	int mode = MODE_SOAP;
 	const char* soap_endpoint = "http://localhost:9090/ChallengePort";
-
+#if DEBUG
 	cout << "Hardware concurrency: " << tthread::thread::hardware_concurrency() << endl;
-
+#endif
 	if (argc == 2) {
 		soap_endpoint = argv[1]; //Use 1st argument as default;
 		if (strcmp(argv[1],"0") == 0) {

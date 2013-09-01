@@ -162,6 +162,12 @@ const int AVOID_WIDE_O_LOOKUP_TABLE[4][2] = {
 #define AVOID_WIDE_LOOKUP(o,i,axis) AVOID_WIDE_LOOKUP_TABLE[(o)][(i)][(axis)]
 #define AVOID_WIDE_O_LOOKUP(o,i) AVOID_WIDE_O_LOOKUP_TABLE[(o)][(i)/2]
 
+const int WEAKSPOT_LOOKUP_TABLE[5] = {
+		5,2,5,2,5
+};
+
+#define WEAKSPOT_LOOKUP(i) WEAKSPOT_LOOKUP_TABLE[(i)]
+
 inline const char* o2str(int o) {
 	switch (o) {
 	default:

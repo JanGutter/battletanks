@@ -18,7 +18,7 @@
 #include <string.h>
 #include <limits.h>
 
-#define ASSERT 1
+#define ASSERT 0
 
 using namespace std;
 
@@ -73,6 +73,16 @@ bool PlayoutState::isTankInsideBounds(const int x, const int y)
 bool PlayoutState::insideTank(const unsigned int t, const int x, const int y)
 {
 	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
+}
+
+bool PlayoutState::insideAnyTank(const int x, const int y)
+{
+	int i;
+	bool inside = false;
+	for (i = 0; i < 4 && inside; i++) {
+		inside = insideTank(i,x,y);
+	}
+	return inside;
 }
 
 bool PlayoutState::insideTinyTank(const int t, const int x, const int y)
@@ -539,6 +549,7 @@ bool PlayoutState::clearPath(int x, int y, int o)
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
 		clear = (board[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & B_WALL) == 0;
+		clear = clear && !insideAnyTank(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y));
 	}
 	return clear;
 }
@@ -586,11 +597,11 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				}
 			}
 			//The 4 dirs for each enemy tank
-			/*for (j = 0; j < 5; j++) {
+			for (j = 0; j < 5; j++) {
 				for (tankno = 0; tankno < 2; tankno++) {
 					if (tank[(1-player)*2+tankno].active) {
 						for (i = 0; i < max(max_x,max_y); i++) {
-							t.cost = i/2 + 10; //rather go for the base than for the tank!
+							t.cost = i/2 + WEAKSPOT_LOOKUP(j); //rather go for the base than for the tank!
 							t.o = o;
 							targetx = tank[(1-player)*2+tankno].x - BUMP_LOOKUP(o,j,O_X);
 							targety = tank[(1-player)*2+tankno].y - BUMP_LOOKUP(o,j,O_Y);
@@ -605,7 +616,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						}
 					}
 				}
-			}*/
+			}
 		}
 		//Flood-fill backward to determine shortest greedy path
 		while (!frontier.empty()) {
