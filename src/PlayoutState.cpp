@@ -628,6 +628,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 			}
 		}
 	}
+
 	for (o = 0; o < 4; o++) {
 		u.cost[0][base[1].x][base[1].y][o] = 0;
 		u.cost[1][base[0].x][base[0].y][o] = 0;
