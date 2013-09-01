@@ -105,6 +105,7 @@ int main(int argc, char** argv) {
 #endif
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
+		node_state.paint(*u);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
 

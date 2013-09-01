@@ -208,8 +208,6 @@ void NetworkCore::play()
 	UtilityScores* u = new UtilityScores;
 	MCTree* mc_tree = new MCTree;
 
-	bool firstrun = true;
-
 	stat_getstatus.init();
 	stat_setaction.init();
 
@@ -683,19 +681,30 @@ void NetworkCore::play()
 			switch (policy) {
 			case POLICY_MCTS:
 			case POLICY_GREEDY:
+				//state.paint(*u);
+
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
+#if DEBUG
+						cout << "Costs [" << tankid << "]:";
+#endif
 						int bestcmd = C_FIRE;
 						int bestcost = INT_MAX;
 						int cost;
 						for (int c = 0; c < 6; c++) {
 							cost = state.cmdToUtility(c,tankid,*u);
+#if DEBUG
+							cout << " " << cmd2str(c) << ": " << cost;
+#endif
 							if (cost < bestcost) {
 								bestcost = cost;
 								bestcmd = c;
 							}
 						}
 						action[tankid] = hton_cmd(bestcmd);
+#if DEBUG
+						cout << endl;
+#endif
 					}
 				}
 #if DEBUG

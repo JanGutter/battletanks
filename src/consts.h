@@ -135,15 +135,46 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 
 //B_SPLASH[o][i][x/y] is a lookup for the 4 "splash damage" coordinates of an explosion.
 const int B_SPLASH_LOOKUP_TABLE[4][4][2] = {
-		{{-2,0}, {-1,0}, {1,0}, {2,0}},
-		{{-2,0}, {-1,0}, {1,0}, {2,0}},
-		{{0,-2}, {0,-1}, {0,1}, {0,2}},
-		{{0,-2}, {0,-1}, {0,1}, {0,2}}};
+		{{-2, 0}, {-1, 0}, { 1, 0}, { 2, 0}},
+		{{ 2, 0}, { 1, 0}, {-1, 0}, {-2, 0}},
+		{{ 0,-2}, { 0,-1}, { 0, 1}, { 0, 2}},
+		{{ 0, 2}, { 0, 1}, { 0,-1}, { 0,-2}}};
 
 #define B_SPLASH(o,i,axis) B_SPLASH_LOOKUP_TABLE[(o)][(i)][(axis)]
-
+#define AVOID_LOOKUP(o,i,axis) B_SPLASH_LOOKUP_TABLE[(o)][(i)][(axis)]
 
 // o == orientation, i == 1-5, axis == X or Y
 #define MOVEPATH_LOOKUP(o,i,axis) BUMP_LOOKUP_TABLE[(o)][(i)][(axis)]
+
+//AVOID_WIDE_LOOKUP_TABLE[o][i][x/y] is a lookup for the wide avoidance coordinates
+const int AVOID_WIDE_LOOKUP_TABLE[4][2][2] = {
+		{{-2, 0}, { 2, 0}},
+		{{ 2, 0}, {-2, 0}},
+		{{ 0,-2}, { 0, 2}},
+		{{ 0, 2}, { 0,-2}}};
+//AVOID_WIDE_O_LOOKUP_TABLE[o][i] is a lookup to see which direction to dodge
+const int AVOID_WIDE_O_LOOKUP_TABLE[4][2] = {
+		{O_LEFT, O_RIGHT},
+		{O_RIGHT, O_LEFT},
+		{O_UP,O_DOWN},
+		{O_DOWN,O_UP}};
+
+#define AVOID_WIDE_LOOKUP(o,i,axis) AVOID_WIDE_LOOKUP_TABLE[(o)][(i)][(axis)]
+#define AVOID_WIDE_O_LOOKUP(o,i) AVOID_WIDE_O_LOOKUP_TABLE[(o)][(i)/2]
+
+inline const char* o2str(int o) {
+	switch (o) {
+	default:
+	case O_UP:
+		return "up";
+	case O_DOWN:
+		return "down";
+	case O_LEFT:
+		return "left";
+	case O_RIGHT:
+		return "right";
+	}
+}
+
 
 #endif /* CONSTS_H_ */

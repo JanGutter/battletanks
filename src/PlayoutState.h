@@ -83,13 +83,15 @@ public:
 	void updateCanFire(PlayoutState& p);
 	bool insideBounds(const int x, const int y);
 	bool isTankInsideBounds(const int x, const int y);
-	bool clearTrajectory(int x, int y, int o, int t_x, int t_y);
+	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y);
+	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y);
 	bool clearPath(int x, int y, int o);
 	bool clearablePath(int x, int y, int o);
 	bool insideTank(const unsigned int t, const int x, const int y);
 	bool insideTinyTank(const int t, const int x, const int y);
 	bool onBase(const int b, const int x, const int y);
 	bool onTarget(const int t, const int x, const int y);
+	bool incomingBullet(const int x, const int y, const int o);
 	bool isTankAt(const int t, const int x, const int y);
 	void drawTank(const int t, const int block);
 	void drawTinyTank(const int t, const int block);
@@ -97,7 +99,7 @@ public:
 	int cmdToUtility(int c, int t, UtilityScores &u);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);
-	void paint();
+	void paint(UtilityScores& u);
 };
 
 ostream &operator<<(ostream &output, const PlayoutState &p);

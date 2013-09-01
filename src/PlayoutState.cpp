@@ -505,13 +505,25 @@ double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 	return state_score;
 }
 
-bool PlayoutState::clearTrajectory(int x, int y, int o, int t_x, int t_y)
+bool PlayoutState::clearFireTrajectory(int x, int y, int o, int t_x, int t_y)
 {
 	//WARNING: DON'T CALL WITH OOB t_x and t_y
 	bool clear = true;
 	//We start from the center of tank: need to move 3 blocks to get where the bullet starts
 	x += 3*O_LOOKUP(o,O_X);
 	y += 3*O_LOOKUP(o,O_Y);
+	while (clear && ((x != t_x) || (y != t_y))) {
+		clear = insideBounds(x,y) && ((board[x][y] & B_WALL) == 0);
+		x += O_LOOKUP(o,O_X);
+		y += O_LOOKUP(o,O_Y);
+	}
+	return clear;
+}
+
+bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y)
+{
+	//WARNING: DON'T CALL WITH OOB t_x and t_y
+	bool clear = true;
 	while (clear && ((x != t_x) || (y != t_y))) {
 		clear = insideBounds(x,y) && ((board[x][y] & B_WALL) == 0);
 		x += O_LOOKUP(o,O_X);
@@ -541,7 +553,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 {
 	int o,i,j,tankno;
 	Tank t,g;
-	int player;
+	int player,lookup;
 	int targetx,targety;
 	priority_queue<Tank> frontier;
 	for (player = 0; player < 2; player++) {
@@ -566,7 +578,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				targety = base[1-player].y;
 				t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
 				t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
-				if (isTankInsideBounds(t.x,t.y) && clearTrajectory(t.x,t.y,t.o,targetx,targety)) {
+				if (isTankInsideBounds(t.x,t.y) && clearFireTrajectory(t.x,t.y,t.o,targetx,targety)) {
 					u.cost[player][t.x][t.y][t.o] = t.cost;
 					frontier.push(t);
 				} else {
@@ -574,17 +586,17 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				}
 			}
 			//The 4 dirs for each enemy tank
-			for (j = 0; j < 5; j++) {
+			/*for (j = 0; j < 5; j++) {
 				for (tankno = 0; tankno < 2; tankno++) {
 					if (tank[(1-player)*2+tankno].active) {
 						for (i = 0; i < max(max_x,max_y); i++) {
-							t.cost = i/2 + 5; //rather go for the base than for the tank!
+							t.cost = i/2 + 10; //rather go for the base than for the tank!
 							t.o = o;
 							targetx = tank[(1-player)*2+tankno].x - BUMP_LOOKUP(o,j,O_X);
 							targety = tank[(1-player)*2+tankno].y - BUMP_LOOKUP(o,j,O_Y);
 							t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
 							t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
-							if (isTankInsideBounds(t.x,t.y) && clearTrajectory(t.x,t.y,t.o,targetx,targety)) {
+							if (isTankInsideBounds(t.x,t.y) && clearFireTrajectory(t.x,t.y,t.o,targetx,targety)) {
 								u.cost[player][t.x][t.y][t.o] = t.cost;
 								frontier.push(t);
 							} else {
@@ -593,7 +605,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						}
 					}
 				}
-			}
+			}*/
 		}
 		//Flood-fill backward to determine shortest greedy path
 		while (!frontier.empty()) {
@@ -628,7 +640,46 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 			}
 		}
 	}
-
+	//Avoid enemy bullets
+	for (player = 0; player < 2; player++) {
+		for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
+			if (bullet[j].active) {
+				targetx = bullet[j].x;
+				targety = bullet[j].y;
+				for (i = 0; i < max(max_x,max_y); i++) {
+					if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
+						if (i < 10) {
+							for (o = 0; o < 4; o++) {
+								u.cost[player][targetx][targety][o] = INT_MAX;
+							}
+						}/* else {
+							for (o = 0; o < 4; o++) {
+								u.cost[player][targetx][targety][o] = 10;
+							}
+						}*/
+						u.cost[player][targetx][targety][O_OPPOSITE(bullet[j].o)] = i/2;
+						targetx += O_LOOKUP(bullet[j].o,O_X);
+						targety += O_LOOKUP(bullet[j].o,O_Y);
+					}
+				}
+				for (lookup = 0; lookup < 4; lookup++) {
+					targetx = bullet[j].x + AVOID_LOOKUP(bullet[j].o,lookup,O_X);
+					targety = bullet[j].y + AVOID_LOOKUP(bullet[j].o,lookup,O_Y);
+					for (i = 0; i < 12; i++) {
+						if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
+							for (o = 0; o < 4; o++) {
+								if (lookup == 1 || lookup == 2 || (o != AVOID_WIDE_O_LOOKUP(bullet[j].o,lookup))) {
+									u.cost[player][targetx][targety][o] = INT_MAX;
+								}
+							}
+							targetx += O_LOOKUP(bullet[j].o,O_X);
+							targety += O_LOOKUP(bullet[j].o,O_Y);
+						}
+					}
+				}
+			}
+		}
+	}
 	for (o = 0; o < 4; o++) {
 		u.cost[0][base[1].x][base[1].y][o] = 0;
 		u.cost[1][base[0].x][base[0].y][o] = 0;
@@ -644,6 +695,16 @@ bool PlayoutState::onBase(const int b, const int x, const int y)
 bool PlayoutState::onTarget(const int p, const int x, const int y)
 {
 	return (onBase(1-p,x,y) || insideTank((1-p)*2,x,y) || insideTank((1-p)*2+1,x,y));
+}
+
+bool PlayoutState::incomingBullet(const int x, const int y, const int o)
+{
+	int i;
+	bool incoming = false;
+	for (i = 0; i < 4 && !incoming; i++) {
+		incoming = bullet[i].active && (bullet[i].o == (o^1)) && (bullet[i].x == x) && (bullet[i].y == y);
+	}
+	return incoming;
 }
 
 int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
@@ -663,8 +724,9 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
 		i = 0;
+
 		while (insideBounds(x,y) && !onTarget(player,x,y)) {
-			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
+			if (wallcount == 0 && incomingBullet(x,y,t.o)) {
 				return 0; //Bullet heading this way, FIRE!
 			}
 			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
@@ -702,9 +764,9 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 	}
 }
 
-void PlayoutState::paint()
+void PlayoutState::paint(UtilityScores& u)
 {
-	int i,j;
+	int i,j,o;
 	cout << "====" << endl;
 	cout << tickno << endl;
 
@@ -727,6 +789,30 @@ void PlayoutState::paint()
 		cout << endl;
 	}
 	cout << endl;
+
+	for (o = 0; o < 4; o++) {
+		cout << "====" << endl;
+		cout << o2str(o) << endl;
+		int maxcost = 0;
+		for (i = min_x; i < max_x; i++) {
+			for (j = min_y; j < max_y; j++) {
+				if (u.cost[0][i][j][o] != INT_MAX) {
+					maxcost = max(maxcost,u.cost[0][i][j][o]);
+				}
+			}
+		}
+		cout << maxcost << endl;
+		for (j = min_y; j < max_y; j++) {
+			for (i = min_x; i < max_x; i++) {
+				if (u.cost[0][i][j][o] != INT_MAX) {
+					cout << ((u.cost[0][i][j][o] - 1)*10/maxcost);
+				} else {
+					cout << "*";
+				}
+			}
+			cout << endl;
+		}
+	}
 }
 
 ostream &operator<<(ostream &output, const PlayoutState &p)
