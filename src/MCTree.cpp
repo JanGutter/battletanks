@@ -198,7 +198,7 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 	expand_task_t* task = tasks+taskid;
 	int command[4];
 #if DEBUG > 2
-	cout << "Task started on node [" << *task->child_ptr << "] by thread " << threadid << endl;
+	cout << "Task started on node [" << task->child_ptr << "] by thread " << threadid << endl;
 #endif
 	command[0] = C_T0(task->alpha,task->beta);
 	command[1] = C_T1(task->alpha,task->beta);
@@ -206,28 +206,30 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 	command[3] = C_T3(task->alpha,task->beta);
 
 #if ASSERT
-	if (*task->child_ptr == 0) {
+	if (task->child_ptr == 0) {
 		cout << "Something's wrong, child_ptr should never be 0!" << endl;
 	}
 #endif
-	if (child_legalmove(*task->child_ptr)) {
+	if (child_legalmove(task->child_ptr)) {
 		memcpy(&child_state[threadid],task->parent_state,sizeof(PlayoutState));
 		memcpy(child_state[threadid].command,command,sizeof(command));
 		child_state[threadid].simulateTick();
 		if (child_state[threadid].gameover) {
-			tree[*task->child_ptr].terminal = true;
+			tree[task->child_ptr].terminal = true;
 		} else {
-			tree[*task->child_ptr].terminal = false;
+			tree[task->child_ptr].terminal = false;
 			//TODO: should probably be node_utility rather than root_u
 			child_state[threadid].playout(worker_sfmt[threadid],root_u);
 		}
-		tree[*task->child_ptr].expanded_to = 0;
-		tree[*task->child_ptr].r.init();
-		tree[*task->child_ptr].r.push(child_state[threadid].state_score);
+		tree[task->child_ptr].expanded_to = 0;
+		tree[task->child_ptr].r.init();
+		tree[task->child_ptr].r.push(child_state[threadid].state_score);
+#if ASSERT
 #if DEBUG > 2
-		cout << "Node [" << *task->child_ptr << "] result: " << tree[*task->child_ptr].r.mean() << endl;
+		cout << "Node [" << task->child_ptr << "] result: " << tree[task->child_ptr].r.mean() << endl;
+#endif
 	} else {
-		cout << "Pruned move..." << endl;
+		cout << "Something's wrong, a task should always be valid..." << endl;
 #endif
 	}
 }
@@ -239,11 +241,9 @@ inline bool MCTree::tasks_empty()
 
 inline void MCTree::post_result(int alpha, int beta)
 {
-	task_result_mutex.lock();
 	task_results[task_result_last].alpha = alpha;
 	task_results[task_result_last].beta = beta;
 	task_result_last = (task_result_last + 1) % RESULT_RING_SIZE;
-	task_result_mutex.unlock();
 }
 
 inline unsigned int MCTree::num_results()
@@ -271,7 +271,12 @@ void expand_subnodes(void* thread_param) {
 #endif
 			mc_tree->workers_awake--;
 			if (!mc_tree->workers_awake) {
+#if DEBUG > 1
+				cout << "Thread (" << threadid << ") last one awake, notifying main thread." << endl;
+#endif
+				mc_tree->task_result_mutex.lock();
 				mc_tree->workers_finished.notify_one();
+				mc_tree->task_result_mutex.unlock();
 			}
 			mc_tree->tasks_available.wait(mc_tree->task_mutex);
 			mc_tree->workers_awake++;
@@ -297,8 +302,10 @@ void expand_subnodes(void* thread_param) {
 				break;
 			}
 			mc_tree->handle_task(taskid,threadid);
-			mc_tree->post_result(mc_tree->tasks[taskid].alpha,mc_tree->tasks[taskid].beta);
 			mc_tree->task_mutex.lock();
+			mc_tree->task_result_mutex.lock();
+			mc_tree->post_result(mc_tree->tasks[taskid].alpha,mc_tree->tasks[taskid].beta);
+			mc_tree->task_result_mutex.unlock();
 			running = mc_tree->workers_keepalive;
 		}
 #if DEBUG > 1
@@ -387,7 +394,6 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	}
 
 #if ASSERT
-
 	long int total_allocated_nodes = 0;
 	for (i = 0; i < 36; i++) {
 		for (j = 0; j < 36; j++) {
@@ -434,7 +440,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 								unallocated.begin());
 						unallocated_count--;
 						allocated_count[root_alpha][root_beta]++;
-						tasks[task_last].child_ptr = &tree[node_id].child[i][j];
+						tasks[task_last].child_ptr = tree[node_id].child[i][j];
 						tasks[task_last].alpha = i;
 						tasks[task_last].beta = j;
 						tasks[task_last].parent_state = &node_state;
@@ -445,14 +451,16 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 			}
 		}
 	}
-	task_mutex.unlock();
+
 	if (count_tasks < 20) {
 		while (task_first != task_last) {
 			handle_task(task_first,0);
 			post_result(tasks[task_first].alpha,tasks[task_first].beta);
 			task_first = (task_first + 1) % TASK_RING_SIZE;
+			task_mutex.unlock();
 		}
 	} else {
+		task_mutex.unlock();
 		tasks_available.notify_all();
 		task_result_mutex.lock();
 		while (num_results() != count_tasks) {
@@ -590,30 +598,45 @@ void MCTree::backprop(vector<Move>& path,vector<double>& result)
 
 unsigned int MCTree::best_alpha()
 {
-	unsigned int alpha,beta;
+	unsigned int greedyalpha,alpha,beta;
 
-	alpha = C_TO_ALPHA(tree[root_id].cmd_order[0][0],tree[root_id].cmd_order[1][0]);
-	beta = C_TO_BETA(tree[root_id].cmd_order[2][0],tree[root_id].cmd_order[3][0]);
-	double mean;
-	double bestmean = tree[tree[root_id].child[alpha][beta]].r.mean();
-	double basemean = bestmean+0.1;
-	double margin = 0.0;
-	unsigned int bestalpha = alpha;
-	//cout << "R matrix:" << endl;
+	double confidence[36][36];
+
 	for (alpha = 0; alpha < 36; alpha++) {
 		for (beta = 0; beta < 36; beta++) {
-			//cout << setw(5) << setprecision(2) << tree[tree[root_id].child[alpha][beta]].r.mean();
-			mean = tree[tree[root_id].child[alpha][beta]].r.mean();
-			if (mean > bestmean && (mean - bestmean) > basemean && tree[tree[root_id].child[alpha][beta]].r.count() > 2 ) {
-				margin = mean - bestmean;
-				bestmean = mean;
-				bestalpha = alpha;
+			tree_size_t& child_id = tree[root_id].child[alpha][beta];
+			if (child_explored(child_id) && tree[child_id].r.variance() > 0.0 ) {
+				confidence[alpha][beta] = log(tree[child_id].r.count())/tree[child_id].r.variance();
+			} else {
+				confidence[alpha][beta] = 0.0;
 			}
+
 		}
-		//cout << endl;
 	}
-	cout << "Best count by margin: " << margin << endl;
-	return bestalpha;
+
+	greedyalpha = alpha = C_TO_ALPHA(tree[root_id].cmd_order[0][0],tree[root_id].cmd_order[1][0]);
+	beta = C_TO_BETA(tree[root_id].cmd_order[2][0],tree[root_id].cmd_order[3][0]);
+	double conf;
+	double bestconf = confidence[alpha][beta];
+	unsigned int bestalpha = alpha;
+	for (alpha = 0; alpha < 36; alpha++) {
+		conf = 0;
+		for (beta = 0; beta < 36; beta++) {
+			conf += confidence[alpha][beta];
+		}
+		if (conf > bestconf) {
+			bestconf = conf;
+			bestalpha = alpha;
+		}
+	}
+	cout << "Confidence: " << bestconf << endl;
+	if (bestconf > 36000.0) {
+		cout << "Confidence high" << endl;
+		return bestalpha;
+	} else {
+		cout << "Confidence too low, falling back to greedy." << endl;
+		return greedyalpha;
+	}
 }
 
 void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)

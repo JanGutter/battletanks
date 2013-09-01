@@ -82,12 +82,14 @@ const int BUMP_LOOKUP_TABLE[4][5][2] = {
 		{{-3,-2},{-3,-1},{-3, 0},{-3, 1},{-3, 2}},/*left*/
 		{{ 3,-2},{ 3,-1},{ 3, 0},{ 3, 1},{ 3, 2}},/*right*/
 		};
-// c == command, i == 1-5, axis == X or Y
-#define BUMP_LOOKUP(c,i,axis) BUMP_LOOKUP_TABLE[(c)-2][(i)][(axis)]
-#define BUMP_OPPOSITE(c,i,axis) BUMP_LOOKUP_TABLE[((c)-2)^1][(i)][(axis)]
 
 #define O_X 0
 #define O_Y 1
+
+// o == orientation, i == 1-5, axis == X or Y
+#define BUMP_LOOKUP(o,i,axis) BUMP_LOOKUP_TABLE[(o)-2][(i)][(axis)]
+#define BUMP_OPPOSITE(o,i,axis) BUMP_LOOKUP_TABLE[((o)-2)^1][(i)][(axis)]
+
 
 #define O_UP 0
 #define O_DOWN 1

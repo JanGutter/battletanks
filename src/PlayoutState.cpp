@@ -539,9 +539,10 @@ bool PlayoutState::clearablePath(int x, int y, int o)
 
 void PlayoutState::populateUtilityScores(UtilityScores &u)
 {
-	int o,i,j;
+	int o,i,j,tankno;
 	Tank t,g;
 	int player;
+	int targetx,targety;
 	priority_queue<Tank> frontier;
 	for (player = 0; player < 2; player++) {
 		for (i = 0; i < max_x; i++) {
@@ -557,20 +558,43 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 	for (player = 0; player < 2; player++) {
 		//Seed with possible final positions
 		for (o = 0; o < 4; o++) {
+			//The 4 dirs for the base
 			for (i = 0; i < max(max_x,max_y); i++) {
 				t.cost = i/2 + 1;
 				t.o = o;
-				t.x = base[1-player].x - (3+i)*O_LOOKUP(o,O_X);
-				t.y = base[1-player].y - (3+i)*O_LOOKUP(o,O_Y);
-				if (isTankInsideBounds(t.x,t.y) && clearTrajectory(t.x,t.y,t.o,base[1-player].x,base[1-player].y)) {
+				targetx = base[1-player].x;
+				targety = base[1-player].y;
+				t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
+				t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
+				if (isTankInsideBounds(t.x,t.y) && clearTrajectory(t.x,t.y,t.o,targetx,targety)) {
 					u.cost[player][t.x][t.y][t.o] = t.cost;
 					frontier.push(t);
 				} else {
 					break;
 				}
 			}
+			//The 4 dirs for each enemy tank
+			for (j = 0; j < 5; j++) {
+				for (tankno = 0; tankno < 2; tankno++) {
+					if (tank[(1-player)*2+tankno].active) {
+						for (i = 0; i < max(max_x,max_y); i++) {
+							t.cost = i/2 + 5; //rather go for the base than for the tank!
+							t.o = o;
+							targetx = tank[(1-player)*2+tankno].x - BUMP_LOOKUP(o,j,O_X);
+							targety = tank[(1-player)*2+tankno].y - BUMP_LOOKUP(o,j,O_Y);
+							t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
+							t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
+							if (isTankInsideBounds(t.x,t.y) && clearTrajectory(t.x,t.y,t.o,targetx,targety)) {
+								u.cost[player][t.x][t.y][t.o] = t.cost;
+								frontier.push(t);
+							} else {
+								break;
+							}
+						}
+					}
+				}
+			}
 		}
-
 		//Flood-fill backward to determine shortest greedy path
 		while (!frontier.empty()) {
 			g = frontier.top();

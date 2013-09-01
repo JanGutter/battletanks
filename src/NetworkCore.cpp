@@ -193,6 +193,7 @@ void NetworkCore::play()
 	platformstl::performance_counter soap_timer;
 	platformstl::performance_counter comms_timer;
 	platformstl::performance_counter ai_timer;
+	platformstl::performance_counter loop_timer;
 	bool its_me;
 	int num_recv,player_offset,check;
 	TankState received_tanks[2];
@@ -661,7 +662,8 @@ void NetworkCore::play()
 #endif
 		if (soaperr == SOAP_OK) {
 			ai_timer.restart();
-
+			loop_timer.restart();
+			int64_t looptime;
 			int64_t sleeptime;
 			int tankid;
 			ns1__setAction setAction_req;
@@ -709,7 +711,7 @@ void NetworkCore::play()
 					break;
 				}
 
-#if DEBUG
+#if 0
 				cout << "Root node ordering:" << endl;
 				for (i = 0; i < 4; i++) {
 					cout << "tank[" << i << "]{";
@@ -719,18 +721,31 @@ void NetworkCore::play()
 					cout << " }" << endl;
 				}
 #endif
-				width = 2;
-				for (i = 0; i < 500; i++) {
+				loop_timer.stop();
+				looptime = loop_timer.get_microseconds();
+				loop_timer.restart();
+				uint32_t linear;
+				while (looptime < (window-50)*1000) {
+					linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
+					if (linear > 5000) {
+						width = 2;
+					} else if (linear > 100) {
+						width = 3;
+					} else if (linear > 10) {
+						width = 4;
+					} else {
+						width = 5;
+					}
 					path.clear();
 					results.clear();
 					node_state = mc_tree->root_state;
 					node_id = mc_tree->root_id;
-
 					mc_tree->select(width,path,node_id,node_state);
-
 					mc_tree->expand_some(width,node_id,node_state,*u,path,results);
-
 					mc_tree->backprop(path,results);
+					loop_timer.stop();
+					looptime += loop_timer.get_microseconds();
+					loop_timer.restart();
 				}
 				alpha = mc_tree->best_alpha();
 				action[0] = hton_cmd(C_T0(alpha,0));
@@ -753,7 +768,7 @@ void NetworkCore::play()
 				}
 				break;
 			}
-
+			loop_timer.stop();
 			ai_timer.stop();
 			if (ai_timer.get_milliseconds() < window) {
 				window -= ai_timer.get_milliseconds();

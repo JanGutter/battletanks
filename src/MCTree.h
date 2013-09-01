@@ -38,7 +38,7 @@ struct expand_thread_param_t {
 };
 
 struct expand_task_t {
-	tree_size_t* child_ptr;
+	tree_size_t child_ptr;
 	PlayoutState* parent_state;
 	int alpha;
 	int beta;
