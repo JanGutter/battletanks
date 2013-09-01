@@ -28,6 +28,7 @@ using namespace std;
 
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
+#define MODE_SELFPLAY 3
 
 int main(int argc, char** argv) {
 	int mode = MODE_SOAP;
@@ -46,19 +47,22 @@ int main(int argc, char** argv) {
 		if (strcmp(argv[1],"benchmark") == 0) {
 			mode = MODE_BENCHMARK;
 		}
+		if (strcmp(argv[1],"selfplay") == 0) {
+			mode = MODE_SELFPLAY;
+		}
+
 	}
 	MCTree *mc_tree = new MCTree;
 	if (mode == MODE_SOAP) {
-
 		cout << "Network Play using SOAP: [" << soap_endpoint << "]" << endl;
 		NetworkCore* netcore = new NetworkCore(soap_endpoint);
 		netcore->policy = POLICY_MCTS;
 		netcore->login();
 		netcore->play();
 		delete netcore;
-
 	} else if (mode == MODE_BENCHMARK) {
 		int i,width;
+		uint32_t linear;
 		platformstl::performance_counter overall_timer;
 #if BENCHMARK
 		platformstl::performance_counter utility_timer;
@@ -103,12 +107,23 @@ int main(int argc, char** argv) {
 		tmp_state.updateCanFire(node_state);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-		width = 4;
-		cout << "width: " << width << endl;
+
+
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
 		overall_timer.restart();
 		for (i = 0; i < 10 || looptime < 2500000; i++) {
+			linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
+			if (linear > 5000) {
+				width = 2;
+			} else if (linear > 100) {
+				width = 3;
+			} else if (linear > 10) {
+				width = 4;
+			} else {
+				width = 5;
+			}
+			//cout << "width: " << width << endl;
 			path.clear();
 			results.clear();
 			node_state = mc_tree->root_state;
@@ -163,6 +178,35 @@ int main(int argc, char** argv) {
 		cout << "Root " << mc_tree->tree[mc_tree->root_id].r.mean() << "/" << mc_tree->tree[mc_tree->root_id].r.variance() << "/" << mc_tree->tree[mc_tree->root_id].r.count() << endl;
 
 		mc_tree->tree[mc_tree->root_id].print(*mc_tree);
+		delete u;
+	} else if (mode == MODE_SELFPLAY) {
+#if BENCHMARK
+#endif
+		int i;
+		UtilityScores* u = new UtilityScores;
+		PlayoutState node_state;
+		PlayoutState tmp_state;
+		ifstream fin("board1.map");
+		fin >> node_state;
+		node_state.endgame_tick = 200;
+		node_state.gameover = false;
+		node_state.stop_playout = false;
+		fin.close();
+		StatCounter playouts;
+		playouts.init();
+		node_state.drawBases();
+		node_state.drawBullets();
+		node_state.drawTanks();
+		node_state.populateUtilityScores(*u);
+		tmp_state = node_state;
+		tmp_state.updateCanFire(node_state);
+		for (i = 0; i < 1000; i++) {
+			tmp_state = node_state;
+			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);
+			playouts.push(result);
+			cout << "Playout returned: " << result << endl;
+		}
+		cout << "Mean: " << playouts.mean() << " variance: " << playouts.variance() << endl;
 		delete u;
 	}
 

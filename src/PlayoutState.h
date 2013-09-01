@@ -86,7 +86,7 @@ public:
 	bool clearTrajectory(int x, int y, int o, int t_x, int t_y);
 	bool clearPath(int x, int y, int o);
 	bool clearablePath(int x, int y, int o);
-	bool insideTank(const int t, const int x, const int y);
+	bool insideTank(const unsigned int t, const int x, const int y);
 	bool insideTinyTank(const int t, const int x, const int y);
 	bool onBase(const int b, const int x, const int y);
 	bool onTarget(const int t, const int x, const int y);
@@ -95,8 +95,11 @@ public:
 	void drawTinyTank(const int t, const int block);
 	void populateUtilityScores(UtilityScores &u);
 	int cmdToUtility(int c, int t, UtilityScores &u);
-	friend ostream &operator<<(ostream &output, const PlayoutState &p);
-	friend istream &operator>>(istream  &input, PlayoutState &p);
+	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
+	//friend istream &operator>>(istream  &input, PlayoutState &p);
+	void paint();
 };
 
+ostream &operator<<(ostream &output, const PlayoutState &p);
+istream &operator>>(istream  &input, PlayoutState &p);
 #endif /* PLAYOUTSTATE_H_ */

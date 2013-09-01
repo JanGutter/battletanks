@@ -27,7 +27,7 @@ struct Move {
 };
 
 //15% of moves in the random playout uses the greedy algorithm
-#define EPSILON_GREEDY 50
+#define EPSILON_GREEDY 15
 
 #define PLAYER0 0
 #define PLAYER1 1
@@ -73,7 +73,7 @@ const int C_M_LOOKUP_TABLE[6][2] = {
 };
 
 #define C_M_LOOKUP(c,axis) C_M_LOOKUP_TABLE[(c)][(axis)]
-#define C_ISMOVE(c) ((c) > 2)
+#define C_ISMOVE(c) ((c) > 1)
 #define C_TO_O(c) ((c) - 2)
 
 const int BUMP_LOOKUP_TABLE[4][5][2] = {
