@@ -695,7 +695,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 	//Avoid enemy turrents
 	for (player = 0; player < 2; player++) {
 		for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
-			if (tank[j].canfire) {
+			if (tank[j].active && tank[j].canfire) {
 				targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
 				targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
 				for (i = 0; i < max(max_x,max_y); i++) {
