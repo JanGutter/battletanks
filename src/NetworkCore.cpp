@@ -204,8 +204,8 @@ void NetworkCore::play()
 	int i,j;
 	long long int nexttick;
 	long int lasttick = 0;
-	int safety_margin = 200; // send message 200ms before end of tick.
-	int settle_time = 200; // only poll getStatus 200ms after the beginning of the tick.
+	int safety_margin = 750; // send message 200ms before end of tick.
+	int settle_time = 750; // only poll getStatus 200ms after the beginning of the tick.
 	bool repeated_tick;
 	bool skipped_tick;
 	UtilityScores* u = new UtilityScores;

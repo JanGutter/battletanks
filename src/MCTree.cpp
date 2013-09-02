@@ -92,7 +92,7 @@ void Node::print(MCTree& tree)
 	for (i = 0; i < 36; i++) {
 		for (j = 0; j < 36; j++) {
 			if (child_explored(child[i][j]) && tree.tree[child[i][j]].r.variance() > 0.0 ) {
-				fout << log(tree.tree[child[i][j]].r.count())/tree.tree[child[i][j]].r.variance() << " ";
+				fout << log((double)tree.tree[child[i][j]].r.count())/tree.tree[child[i][j]].r.variance() << " ";
 			} else {
 				fout << "0.0 ";
 			}
@@ -606,7 +606,7 @@ unsigned int MCTree::best_alpha()
 		for (beta = 0; beta < 36; beta++) {
 			tree_size_t& child_id = tree[root_id].child[alpha][beta];
 			if (child_explored(child_id) && tree[child_id].r.variance() > 0.0 ) {
-				confidence[alpha][beta] = log(tree[child_id].r.count())/tree[child_id].r.variance();
+				confidence[alpha][beta] = log((double)tree[child_id].r.count())/tree[child_id].r.variance();
 			} else {
 				confidence[alpha][beta] = 0.0;
 			}

@@ -562,7 +562,7 @@ bool PlayoutState::clearablePath(int x, int y, int o)
 
 void PlayoutState::populateUtilityScores(UtilityScores &u)
 {
-	int o,i,j,tankno;
+	int o,i,j;
 	Tank t,g;
 	int player,lookup;
 	int targetx,targety;
@@ -597,7 +597,8 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				}
 			}
 			//The 4 dirs for each enemy tank
-			for (j = 0; j < 5; j++) {
+			/* int tankno;
+			 for (j = 0; j < 5; j++) {
 				for (tankno = 0; tankno < 2; tankno++) {
 					if (tank[(1-player)*2+tankno].active) {
 						for (i = 0; i < max(max_x,max_y); i++) {
@@ -616,7 +617,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						}
 					}
 				}
-			}
+			}*/
 		}
 		//Flood-fill backward to determine shortest greedy path
 		while (!frontier.empty()) {
@@ -685,6 +686,46 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 							}
 							targetx += O_LOOKUP(bullet[j].o,O_X);
 							targety += O_LOOKUP(bullet[j].o,O_Y);
+						}
+					}
+				}
+			}
+		}
+	}
+	//Avoid enemy turrents
+	for (player = 0; player < 2; player++) {
+		for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
+			if (tank[j].canfire) {
+				targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
+				targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
+				for (i = 0; i < max(max_x,max_y); i++) {
+					if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
+						if (i < 10) {
+							for (o = 0; o < 4; o++) {
+								u.cost[player][targetx][targety][o] = INT_MAX;
+							}
+						}/* else {
+								for (o = 0; o < 4; o++) {
+									u.cost[player][targetx][targety][o] = 10;
+								}
+							}*/
+						u.cost[player][targetx][targety][O_OPPOSITE(tank[j].o)] = i/2;
+						targetx += O_LOOKUP(tank[j].o,O_X);
+						targety += O_LOOKUP(tank[j].o,O_Y);
+					}
+				}
+				for (lookup = 0; lookup < 4; lookup++) {
+					targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X) + AVOID_LOOKUP(tank[j].o,lookup,O_X);
+					targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y) + AVOID_LOOKUP(tank[j].o,lookup,O_Y);
+					for (i = 0; i < 12; i++) {
+						if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
+							for (o = 0; o < 4; o++) {
+								if (lookup == 1 || lookup == 2 || (o != AVOID_WIDE_O_LOOKUP(tank[j].o,lookup))) {
+									u.cost[player][targetx][targety][o] = INT_MAX;
+								}
+							}
+							targetx += O_LOOKUP(tank[j].o,O_X);
+							targety += O_LOOKUP(tank[j].o,O_Y);
 						}
 					}
 				}
