@@ -111,9 +111,9 @@ int main(int argc, char** argv) {
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
 		overall_timer.restart();
-		for (i = 0; i < 10 || looptime < 2500000; i++) {
+		for (i = 0; i < 10 || looptime < 2000000; i++) {
 			linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
-			if (linear > 5000) {
+			if (linear > 8500) {
 				width = 2;
 			} else if (linear > 100) {
 				width = 3;

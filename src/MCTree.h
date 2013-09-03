@@ -59,7 +59,7 @@ public:
 
 	unsigned int num_workers;
 
-	tthread::mutex task_mutex;
+	tthread::mutex taskqueue_mutex;
 	tthread::condition_variable tasks_available;
 	expand_task_t tasks[TASK_RING_SIZE];
 	unsigned int task_first;
@@ -90,7 +90,7 @@ public:
 	unsigned int best_alpha();
 	void handle_task(int taskid, int threadid);
 	void post_result(int alpha, int beta);
-	bool tasks_empty();
+	bool taskqueue_empty();
 	void init(PlayoutState& reference_state,UtilityScores& reference_u);
 	void reset(PlayoutState& reference_state,UtilityScores& reference_u);
 	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
