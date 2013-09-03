@@ -24,8 +24,8 @@
 #include <platformstl/performance/performance_counter.hpp>
 
 using namespace std;
-#define BENCHMARK 0
-#define DEBUG 0
+#define BENCHMARK 1
+#define DEBUG 1
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
 #define MODE_SELFPLAY 3
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 	int mode = MODE_SOAP;
 	const char* soap_endpoint = "http://localhost:9090/ChallengePort";
 #if DEBUG
-	cout << "Hardware concurrency: " << tthread::thread::hardware_concurrency() << endl;
+	cerr << "Hardware concurrency: " << tthread::thread::hardware_concurrency() << endl;
 #endif
 	if (argc == 2) {
 		soap_endpoint = argv[1]; //Use 1st argument as default;
@@ -105,10 +105,8 @@ int main(int argc, char** argv) {
 #endif
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
-		node_state.paint(*u);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
-
 
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
@@ -198,20 +196,20 @@ int main(int argc, char** argv) {
 		node_state.drawBases();
 		node_state.drawBullets();
 		node_state.drawTanks();
-		node_state.populateUtilityScores(*u);
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
-		for (i = 0; i < 1000; i++) {
+		node_state.populateUtilityScores(*u);
+		for (i = 0; i < 50000; i++) {
 			tmp_state = node_state;
 			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);
 			playouts.push(result);
-			cout << "Playout returned: " << result << endl;
+			cout << result << endl;
 		}
-		cout << "Mean: " << playouts.mean() << " variance: " << playouts.variance() << endl;
+		cerr << "Mean: " << playouts.mean() << " variance: " << playouts.variance() << endl;
 		delete u;
 	}
 
 	delete mc_tree;
-	cout << "Done!" << endl;
+	cerr << "Done!" << endl;
 	return 0;
 }

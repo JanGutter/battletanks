@@ -75,24 +75,6 @@ inline const char* action2str(ns1__action action) {
 	}
 }
 
-inline const char* cmd2str(int cmd) {
-	switch (cmd) {
-	default:
-	case C_NONE:
-		return "none";
-	case C_UP:
-		return "up";
-	case C_DOWN:
-		return "down";
-	case C_LEFT:
-		return "left";
-	case C_RIGHT:
-		return "right";
-	case C_FIRE:
-		return "fire";
-	}
-}
-
 inline int ntoh_direction(enum ns1__direction *direction) {
 	//TODO: Direction is probably static_cast<int>(*direction)-1;
 	if (direction) {

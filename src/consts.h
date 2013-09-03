@@ -61,7 +61,7 @@ typedef uint16_t move_t;
 #define C_DOWN 3
 #define C_LEFT 4
 #define C_RIGHT 5
-
+#if 0
 //C_M_LOOKUP_TABLE looks up the movement from a command
 const int C_M_LOOKUP_TABLE[6][2] = {
 		{ 0, 0},/*none*/
@@ -73,6 +73,7 @@ const int C_M_LOOKUP_TABLE[6][2] = {
 };
 
 #define C_M_LOOKUP(c,axis) C_M_LOOKUP_TABLE[(c)][(axis)]
+#endif
 #define C_ISMOVE(c) ((c) > 1)
 #define C_TO_O(c) ((c) - 2)
 
@@ -87,8 +88,7 @@ const int BUMP_LOOKUP_TABLE[4][5][2] = {
 #define O_Y 1
 
 // o == orientation, i == 1-5, axis == X or Y
-#define BUMP_LOOKUP(o,i,axis) BUMP_LOOKUP_TABLE[(o)-2][(i)][(axis)]
-#define BUMP_OPPOSITE(o,i,axis) BUMP_LOOKUP_TABLE[((o)-2)^1][(i)][(axis)]
+#define BUMP_LOOKUP(o,i,axis) BUMP_LOOKUP_TABLE[(o)][(i)][(axis)]
 
 
 #define O_UP 0
@@ -126,10 +126,10 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 #define B_TANK 4
 #define B_BULLET (8+16+32+64)
 #define B_OOB 128
-#define B_OCCUPIED (B_WALL+B_BASE+B_TANK)
+#define B_DESTRUCTABLES B_WALL+B_BASE+B_TANK
 #define B_LOOKUP(o) (8 << (o))
 #define B_OPPOSITE(o) (8 << (o^1))
-#define B_ISCLEAR(b) (((b) & B_OCCUPIED) == B_EMPTY)
+#define B_ISCLEAR(b) (((b) & (B_WALL+B_TANK)) == B_EMPTY)
 #define B_ISBASE(b) (((b) & B_BASE) == B_BASE)
 #define B_ISOOB(b) (((b) & B_OOB) == B_OOB)
 
@@ -182,5 +182,22 @@ inline const char* o2str(int o) {
 	}
 }
 
+inline const char* cmd2str(int cmd) {
+	switch (cmd) {
+	default:
+	case C_NONE:
+		return "none";
+	case C_UP:
+		return "up";
+	case C_DOWN:
+		return "down";
+	case C_LEFT:
+		return "left";
+	case C_RIGHT:
+		return "right";
+	case C_FIRE:
+		return "fire";
+	}
+}
 
 #endif /* CONSTS_H_ */

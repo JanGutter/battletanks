@@ -88,11 +88,24 @@ void Node::print(MCTree& tree)
 		fout << endl;
 	}
 	fout.close();
+
+	fout.open("stddev.dat");
+		for (i = 0; i < 36; i++) {
+			for (j = 0; j < 36; j++) {
+				if (child_explored(child[i][j])) {
+					fout << sqrt((double)tree.tree[child[i][j]].r.variance()) << " ";
+				} else {
+					fout << "0.0 ";
+				}
+			}
+			fout << endl;
+		}
+
 	fout.open("confidence.dat");
 	for (i = 0; i < 36; i++) {
 		for (j = 0; j < 36; j++) {
-			if (child_explored(child[i][j]) && tree.tree[child[i][j]].r.variance() > 0.0 ) {
-				fout << log((double)tree.tree[child[i][j]].r.count())/tree.tree[child[i][j]].r.variance() << " ";
+			if (child_explored(child[i][j]) && tree.tree[child[i][j]].r.count() > 30 ) {
+				fout << sqrt((double)tree.tree[child[i][j]].r.variance())/sqrt((double)tree.tree[child[i][j]].r.count()) << " ";
 			} else {
 				fout << "0.0 ";
 			}
@@ -732,7 +745,7 @@ MCTree::MCTree()
 
 	//TODO: figure out a good value for tree_size
 	//tree_size = 100000l;
-	tree_size = 50000l;
+	tree_size = 200000l;
 	tree = new Node[tree_size];
 	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
 	for (i = 2; i < tree_size; i++) {

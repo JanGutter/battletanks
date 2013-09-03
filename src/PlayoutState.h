@@ -101,6 +101,7 @@ public:
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);
 	void paint(UtilityScores& u);
+	void paint();
 };
 
 ostream &operator<<(ostream &output, const PlayoutState &p);

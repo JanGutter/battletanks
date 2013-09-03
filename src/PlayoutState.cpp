@@ -18,7 +18,8 @@
 #include <string.h>
 #include <limits.h>
 
-#define ASSERT 0
+#define ASSERT 1
+#define DEBUG 0
 
 using namespace std;
 
@@ -120,7 +121,7 @@ void PlayoutState::moveBullets()
 	int i;
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
-			board[bullet[i].x][bullet[i].y] = B_EMPTY;
+			board[bullet[i].x][bullet[i].y] ^= B_LOOKUP(bullet[i].o);
 			bullet[i].x += O_LOOKUP(bullet[i].o,O_X);
 			bullet[i].y += O_LOOKUP(bullet[i].o,O_Y);
 			if (insideBounds(bullet[i].x,bullet[i].y)) {
@@ -138,7 +139,6 @@ void PlayoutState::moveTanks()
 	int i,j,t,c,x,y,square;
 	int newx,newy;
 	bool clear;
-	bool base;
 #if ASSERT
 	bool fine = true;
 	bool exists[4];
@@ -169,29 +169,25 @@ void PlayoutState::moveTanks()
 		c = command[t];
 		if (tank[t].active && C_ISMOVE(c)) {
 			tank[t].o = C_TO_O(c);
-			clear = true;
-			base = false;
 			x = tank[t].x;
 			y = tank[t].y;
-			newx = x + C_M_LOOKUP(c,C_X);
-			newy = y + C_M_LOOKUP(c,C_Y);
+			newx = x + O_LOOKUP(tank[t].o,O_X);
+			newy = y + O_LOOKUP(tank[t].o,O_Y);
 			if (isTankInsideBounds(newx,newy)) {
-				j = 0;
-				while (j < 5) {
-					square = board[x+BUMP_LOOKUP(c,j,C_X)][y+BUMP_LOOKUP(c,j,C_Y)];
+				clear = true;
+				for (j = 0; j < 5; j++) {
+					square = board[x+BUMP_LOOKUP(tank[t].o,j,O_X)][y+BUMP_LOOKUP(tank[t].o,j,O_Y)];
 					clear = clear && B_ISCLEAR(square);
-					base = base || B_ISBASE(square);
-					j++;
 				}
 				//TODO: Check for win by ramming? base
-				if (clear && !base) {
+				if (clear) {
 					//Move tank
 					tank[t].x = newx;
 					tank[t].y = newy;
 					//Set new points and unset old ones
 					for (j = 0; j < 5; j++) {
-						board[x+BUMP_LOOKUP(c,j,C_X)][y+BUMP_LOOKUP(c,j,C_Y)] |= B_TANK;
-						board[newx+BUMP_OPPOSITE(c,j,C_X)][newy+BUMP_OPPOSITE(c,j,C_Y)] ^= B_TANK;
+						board[x+BUMP_LOOKUP(tank[t].o,j,O_X)][y+BUMP_LOOKUP(tank[t].o,j,O_Y)] |= B_TANK;
+						board[newx-BUMP_LOOKUP(tank[t].o,j,O_X)][newy-BUMP_LOOKUP(tank[t].o,j,O_Y)] ^= B_TANK;
 					}
 				}
 			} else {
@@ -206,17 +202,6 @@ void PlayoutState::fireTanks()
 {
 	int i;
 	for (i = 0; i < 4; i++) {
-#if 0
-		if (i > 1) {
-			if (command[i] == C_FIRE) {
-				cerr << "enemy tank got fire cmd ";
-				if (bullet[i].active) {
-					cerr << "but bullet was active";
-				}
-				cerr << endl;
-			}
-		}
-#endif
 		if ((command[i] == C_FIRE) && (tank[i].active) && (!bullet[i].active)) {
 			bullet[i].x = tank[i].x + FIRE_LOOKUP(tank[i].o,O_X);
 			bullet[i].y = tank[i].y + FIRE_LOOKUP(tank[i].o,O_Y);
@@ -232,7 +217,11 @@ void PlayoutState::fireTanks()
 
 void PlayoutState::checkCollisions()
 {
-	unsigned int i,j,square,other_bullet,x,y,enemy_tanks,friendly_tanks,active_bullets,prevsquare;
+	unsigned int j,square,other_bullet,x,y,enemy_tanks,friendly_tanks,friendly_bullets,enemy_bullets,prevsquare;
+	int i;
+	bool baseok[2];
+	baseok[0] = true;
+	baseok[1] = true;
 
 	for (i = 0; i < 4; i++) {
 		bullet[i].tag = 0;
@@ -247,13 +236,12 @@ void PlayoutState::checkCollisions()
 
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
-
 			prevsquare = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)];
 			//If the bullet passed another one in the opposite direction, it's tagged for removal;
 			//EXCEPT if the previous square contains the tank that fired it.
 			bullet[i].tag = !(prevsquare & B_TANK) && (prevsquare & B_OPPOSITE(bullet[i].o));
 			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
-			square = board[bullet[i].x][bullet[i].y] & (B_OCCUPIED);
+			square = board[bullet[i].x][bullet[i].y] & (B_DESTRUCTABLES);
 			switch (square) {
 			case B_WALL:
 				//Apply splash damage to B_WALL squares ONLY
@@ -290,11 +278,16 @@ void PlayoutState::checkCollisions()
 				winner = W_DRAW; //It's at least a draw
 				if (onBase(0,bullet[i].x,bullet[i].y)) {
 					//Player0's base has been destroyed
-					winner = W_PLAYER1;
+					baseok[0] = false;
 				} else {
+#if ASSERT
+					if (!onBase(1,bullet[i].x,bullet[i].y)) {
+						cerr << "Base collision WITH NO BASE!" << endl;
+					}
+#endif
 					//cout << "W_PLAYER0" << endl;
 					//Player1's base has been destroyed
-					winner = W_PLAYER0;
+					baseok[1] = false;
 				}
 				gameover = true;
 				break;
@@ -308,6 +301,20 @@ void PlayoutState::checkCollisions()
 		}
 	}
 
+	if (gameover) {
+		if (!baseok[0] && !baseok[1]) {
+			winner = W_DRAW;
+		} else if (baseok[0] && !baseok[1]) {
+			winner = W_PLAYER0;
+		} else {
+#if ASSERT
+			if (baseok[0] && baseok[1]) {
+				cerr << "gameover declared, but both bases are fine!" << endl;
+			}
+#endif
+			winner = W_PLAYER1;
+		}
+	}
 	//Erase tagged bullets
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active && bullet[i].tag) {
@@ -327,31 +334,35 @@ void PlayoutState::checkCollisions()
 	if (!gameover) {
 		friendly_tanks = 0;
 		enemy_tanks = 0;
-		active_bullets = 0;
+		enemy_bullets = 0;
+		friendly_bullets = 0;
 		for (i = 0; i < 2; i++) {
 			friendly_tanks += tank[i].active;
-			active_bullets += bullet[i].active;
+			friendly_bullets += bullet[i].active;
 		}
 		for (i = 2; i < 4; i++) {
 			enemy_tanks += tank[i].active;
-			active_bullets += bullet[i].active;
+			enemy_bullets += bullet[i].active;
 		}
-		gameover = ((friendly_tanks+enemy_tanks) == 0) && (active_bullets == 0);
+		gameover = ((friendly_tanks+enemy_tanks) == 0) && (friendly_bullets+enemy_bullets == 0);
+		winner = W_DRAW;
 		state_score = friendly_tanks*0.25 - enemy_tanks*0.25 + 0.5;
 		if (friendly_tanks != enemy_tanks) {
 			stop_playout = true;
-			if (state_score < 0.5) {
-				//	cout << "STOP in favour of P1" << endl;
-			}
-			if (state_score > 0.5) {
-				//	cout << "STOP in favour of P0" << endl;
+		}
+		if ((friendly_tanks+friendly_bullets == 0) || (enemy_tanks+enemy_bullets == 0)) {
+			if (friendly_tanks > 0) {
+				state_score = W_PLAYER0;
+				stop_playout = true;
+			} else if (enemy_tanks > 0) {
+				state_score = W_PLAYER1;
+				stop_playout = true;
 			}
 		}
-		winner = W_DRAW;
 	} else {
 		state_score = winner;
+		stop_playout = true;
 	}
-
 }
 
 void PlayoutState::checkDestroyedBullets()
@@ -374,7 +385,7 @@ void PlayoutState::checkDestroyedBullets()
 			//If the bullet passed another one in the opposite direction, it's tagged for removal;
 			bullet[i].tag = prevsquare & B_OPPOSITE(bullet[i].o);
 			other_bullet = ((board[bullet[i].x][bullet[i].y] & (B_BULLET)) != B_LOOKUP(bullet[i].o));
-			square = board[bullet[i].x][bullet[i].y] & (B_OCCUPIED);
+			square = board[bullet[i].x][bullet[i].y] & (B_DESTRUCTABLES);
 			if (square == B_TANK) {
 				j = 0;
 				while ((j < 3) && !insideTinyTank(j,bullet[i].x,bullet[i].y)) {
@@ -460,12 +471,18 @@ void PlayoutState::move(Move& m)
 
 double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 {
+#if DEBUG
+	bool pickedgreedy[4];
+#endif
 	int move,tankid,c,bestcmd,bestcost,cost;
 	int maxmove = endgame_tick+(max_x/2)-tickno;
 	winner = W_DRAW;
 	for (move = 0; move < maxmove; move++) {
 		for (tankid = 0; tankid < 4; tankid++) {
 			if (sfmt_genrand_uint32(&sfmt) % 100 < (EPSILON_GREEDY-1)) {
+#if DEBUG
+				pickedgreedy[tankid] = true;
+#endif
 				//Expensive version
 				//PlayoutState tmp_state = *this;
 				//tmp_state.updateCanFire(*this);
@@ -474,16 +491,6 @@ double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 					if (tank[tankid].active) {
 						//Cheap version
 						tank[tankid].canfire = !bullet[tankid].active;
-#if 0
-						if (tankid > 1) {
-							if (bullet[tankid].active) {
-								cerr << "active bullet!" << endl;
-							}
-							if (tank[tankid].canfire) {
-								cerr << "can fire" << endl;
-							}
-						}
-#endif
 						bestcmd = C_FIRE;
 						bestcost = INT_MAX;
 						for (c = 0; c < 6; c++) {
@@ -497,12 +504,29 @@ double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 					}
 				}
 			} else {
+#if DEBUG
+				pickedgreedy[tankid] = false;
+#endif
 				//Random playout
 				command[tankid] = sfmt_genrand_uint32(&sfmt) % 6;
 				//command[tankid] = tank[tankid].active * ((tank[tankid].canfire)*(sfmt_genrand_uint32(&sfmt) % 6)
 				//		+ (1-tank[tankid].canfire)*(sfmt_genrand_uint32(&sfmt) % 4));
 			}
 		}
+#if DEBUG
+		paint();
+		cout << "commands:";
+		for (tankid = 0; tankid < 4; tankid++) {
+			if (tank[tankid].active) {
+				cout << " [" << tankid << ": " << cmd2str(command[tankid]);
+				if (pickedgreedy[tankid]) {
+					cout << "*";
+				}
+				cout << "]";
+			}
+		}
+		cout << endl;
+#endif
 		simulateTick();
 		//paint();
 		if (gameover) {
@@ -819,29 +843,7 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 void PlayoutState::paint(UtilityScores& u)
 {
 	int i,j,o;
-	cout << "====" << endl;
-	cout << tickno << endl;
-
-	for (j = min_y; j < max_y; j++) {
-		for (i = min_x; i < max_x; i++) {
-			if (board[i][j] == B_EMPTY) {
-				cout << " ";
-			} else if (board[i][j] == B_WALL) {
-				cout << "#";
-			} else if (board[i][j] == B_BASE) {
-				cout << "&";
-			}else if (board[i][j] == B_TANK) {
-				cout << "@";
-			} else if (board[i][j] & B_BULLET) {
-				cout << "*";
-			} else {
-				cout << "?";
-			}
-		}
-		cout << endl;
-	}
-	cout << endl;
-
+	paint();
 	for (o = 0; o < 4; o++) {
 		cout << "====" << endl;
 		cout << o2str(o) << endl;
@@ -864,6 +866,45 @@ void PlayoutState::paint(UtilityScores& u)
 			}
 			cout << endl;
 		}
+	}
+}
+
+void PlayoutState::paint()
+{
+	int i,j;
+	cout << "-=-=- tick: " << tickno << endl;
+	cout << "base[0] x:" << setw(3) << base[0].x << " y:" << setw(3) << base[0].y << endl;
+	for (i = 0; i < 4; i++) {
+		cout << "t[" << i << "]";
+		if (tank[i].active) {
+			cout << " x:" << setw(3) << tank[i].x << " y:"<< setw(3) << tank[i].y << setw(6) << o2str(tank[i].o) << " f:" << setw(2) << tank[i].canfire;
+		} else {
+			cout << " x:" << setw(3) << "--" << " y:" << setw(3) << "--" << setw(6) << "--" << " f:" << setw(2) << "-";
+		}
+		if (bullet[i].active) {
+			cout << " b[" << i << "] x:" << setw(3) << bullet[i].x << " y:" << setw(3) << bullet[i].y << setw(6) << o2str(bullet[i].o);
+		}
+		cout << endl;
+	}
+	cout << "base[1] x:" << setw(3) << base[1].x << " y:" << setw(3) << base[1].y << endl;
+	cout << "=-=-= board" << endl;
+	for (j = min_y; j < max_y; j++) {
+		for (i = min_x; i < max_x; i++) {
+			if (board[i][j] == B_EMPTY) {
+				cout << " ";
+			} else if (board[i][j] == B_WALL) {
+				cout << "#";
+			} else if (board[i][j] == B_BASE) {
+				cout << "&";
+			}else if (board[i][j] == B_TANK) {
+				cout << "@";
+			} else if (board[i][j] & B_BULLET) {
+				cout << "*";
+			} else {
+				cout << "?";
+			}
+		}
+		cout << endl;
 	}
 }
 
