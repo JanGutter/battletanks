@@ -19,7 +19,7 @@
 #include "MCTree.h"
 #include <fstream>
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define NUMC 10
 #define NUMPLAYERS 2
@@ -668,7 +668,8 @@ void NetworkCore::play()
 			case POLICY_MCTS:
 			case POLICY_GREEDY:
 				//state.paint(*u);
-
+				greedycmd[0] = C_NONE;
+				greedycmd[1] = C_NONE;
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state.tank[tankid].active) {
 #if DEBUG
