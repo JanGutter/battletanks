@@ -569,9 +569,9 @@ void NetworkCore::play()
 #endif
 			} //if events
 
-			state.populateUtilityScores(*u);
 			tmp_state = state;
 			tmp_state.updateCanFire(state);
+			state.populateUtilityScores(*u);
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
 				mc_tree->init(state,*u);
@@ -660,6 +660,7 @@ void NetworkCore::play()
 			vector<double> results;
 			unsigned char width = 3;
 			unsigned int alpha;
+			int greedycmd[2];
 
 			sleeptime = safety_margin;
 
@@ -687,6 +688,9 @@ void NetworkCore::play()
 							}
 						}
 						action[tankid] = hton_cmd(bestcmd);
+						if (tankid < 2) {
+							greedycmd[tankid] = bestcmd;
+						}
 #if DEBUG
 						cout << endl;
 #endif
@@ -738,7 +742,7 @@ void NetworkCore::play()
 				uint32_t linear;
 				while (looptime < (window-50)*1000) {
 					linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
-					if (linear > 5000) {
+					if (linear > 8500) {
 						width = 2;
 					} else if (linear > 100) {
 						width = 3;
@@ -758,7 +762,7 @@ void NetworkCore::play()
 					looptime += loop_timer.get_microseconds();
 					loop_timer.restart();
 				}
-				alpha = mc_tree->best_alpha();
+				alpha = mc_tree->best_alpha(C_TO_ALPHA(greedycmd[0],greedycmd[1]));
 				action[0] = hton_cmd(C_T0(alpha,0));
 				action[1] = hton_cmd(C_T1(alpha,0));
 				break;

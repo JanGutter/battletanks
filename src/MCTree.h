@@ -87,7 +87,7 @@ public:
 	tree_size_t allocated_count[36][36]; //Workaround for O(n) complexity list.size()
 	list <tree_size_t> allocated_to_root;
 	unsigned int num_results();
-	unsigned int best_alpha();
+	unsigned int best_alpha(unsigned int greedy_alpha);
 	void handle_task(int taskid, int threadid);
 	void post_result(int alpha, int beta);
 	bool taskqueue_empty();

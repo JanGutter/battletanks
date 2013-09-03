@@ -642,29 +642,35 @@ void MCTree::backprop(vector<Move>& path,vector<double>& result)
 	}
 }
 
-unsigned int MCTree::best_alpha()
+unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 {
-	unsigned int greedyalpha,alpha,beta;
+	unsigned int alpha,beta;
 
 	double confidence[36][36];
 
 	for (alpha = 0; alpha < 36; alpha++) {
 		for (beta = 0; beta < 36; beta++) {
 			tree_size_t& child_id = tree[root_id].child[alpha][beta];
-			if (child_explored(child_id) && tree[child_id].r.variance() > 0.0 ) {
-				confidence[alpha][beta] = log((double)tree[child_id].r.count())/tree[child_id].r.variance();
+			if (tree[child_id].terminal) {
+				confidence[alpha][beta] = (tree[child_id].r.mean() - 0.5) * TERMINAL_BONUS;
+				continue;
+			}
+			if (child_explored(child_id) && tree[child_id].r.count() > 30 ) {
+				confidence[alpha][beta] = tree[child_id].r.count();
 			} else {
 				confidence[alpha][beta] = 0.0;
 			}
-
 		}
 	}
 
-	greedyalpha = alpha = C_TO_ALPHA(tree[root_id].cmd_order[0][0],tree[root_id].cmd_order[1][0]);
-	beta = C_TO_BETA(tree[root_id].cmd_order[2][0],tree[root_id].cmd_order[3][0]);
+	unsigned int bestalpha;
 	double conf;
-	double bestconf = confidence[alpha][beta];
-	unsigned int bestalpha = alpha;
+	double bestconf;
+	double greedyconf = 0.0;
+	for (beta = 0; beta < 36; beta++) {
+		greedyconf += confidence[greedyalpha][beta];
+	}
+	bestconf = greedyconf;
 	for (alpha = 0; alpha < 36; alpha++) {
 		conf = 0;
 		for (beta = 0; beta < 36; beta++) {
@@ -675,12 +681,15 @@ unsigned int MCTree::best_alpha()
 			bestalpha = alpha;
 		}
 	}
-	cout << "Confidence: " << bestconf << endl;
-	if (bestconf > 36000.0) {
-		cout << "Confidence high" << endl;
+
+	cout << "Greedy confidence: " << greedyconf << endl;
+	cout << "MCTS confidence: " << bestconf << endl;
+
+	if ((bestconf - greedyconf) > 3600.0) {
+		cout << "Chose MCTS" << endl;
 		return bestalpha;
 	} else {
-		cout << "Confidence too low, falling back to greedy." << endl;
+		cout << "Chose Greedy" << endl;
 		return greedyalpha;
 	}
 }

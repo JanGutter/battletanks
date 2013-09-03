@@ -29,6 +29,9 @@ struct Move {
 //15% of moves in the random playout uses the greedy algorithm
 #define EPSILON_GREEDY 15
 
+//A terminal score should dominate the normal scores
+#define TERMINAL_BONUS 36.0
+
 #define PLAYER0 0
 #define PLAYER1 1
 
