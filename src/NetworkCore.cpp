@@ -125,6 +125,10 @@ void NetworkCore::login() {
 		ns1__loginResponse login_resp;
 		soaperr = s.login(&login_req, &login_resp);
 		if (soaperr == SOAP_OK) {
+			state.endgame_tick = login_resp.return_->endGamePoint;
+#if DEBUG
+			cout << "Endgame starts at: " << state.endgame_tick << endl;
+#endif
 			for (vector<ns1__stateArray*>::iterator boardx = login_resp.return_->states.begin(); boardx != login_resp.return_->states.end(); ++boardx) {
 				state.max_y = 0;
 				for (vector<ns1__state>::iterator boardy = (*boardx)->item.begin(); boardy != (*boardx)->item.end() ; ++boardy) {
@@ -167,7 +171,7 @@ void NetworkCore::login() {
 		//TODO: Need to know when endgame begins!
 		state.gameover = false;
 		state.stop_playout = false;
-		state.endgame_tick = 200;
+
 	} while (soaperr != SOAP_OK);
 }
 
