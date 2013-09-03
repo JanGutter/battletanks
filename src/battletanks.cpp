@@ -97,14 +97,14 @@ int main(int argc, char** argv) {
 		cout << "Populating utility scores..." << endl;
 		utility_timer.restart();
 #endif
+		tmp_state = node_state;
+		tmp_state.updateCanFire(node_state);
 		node_state.populateUtilityScores(*u);
 #if BENCHMARK
 		utility_timer.stop();
 		utility_stat.push((double)utility_timer.get_milliseconds());
 		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
 #endif
-		tmp_state = node_state;
-		tmp_state.updateCanFire(node_state);
 		mc_tree->init(node_state,*u);
 		//cout << mc_tree->root_state;
 
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
 		node_state.populateUtilityScores(*u);
-		for (i = 0; i < 50000; i++) {
+		for (i = 0; i < 1; i++) {
 			tmp_state = node_state;
 			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);
 			playouts.push(result);
