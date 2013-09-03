@@ -697,7 +697,7 @@ void NetworkCore::play()
 #endif
 					}
 				}
-
+#if 0
 				if ((state.tank[2].active+state.tank[3].active) == 0 &&
 						(state.tank[0].active+state.tank[1].active) == 2) {
 #if DEBUG
@@ -705,6 +705,7 @@ void NetworkCore::play()
 #endif
 					action[1] = ns1__action__NONE;
 				}
+#endif
 
 #ifdef AREYOUNUTS
 				if (state.tickno > 55) {

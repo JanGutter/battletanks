@@ -701,11 +701,11 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						targety += O_LOOKUP(bullet[j].o,O_Y);
 					}
 				}
-				traveldistance = i-1;
+				traveldistance = i+1;
 				for (lookup = 0; lookup < 4; lookup++) {
 					targetx = bullet[j].x + AVOID_LOOKUP(bullet[j].o,lookup,O_X);
 					targety = bullet[j].y + AVOID_LOOKUP(bullet[j].o,lookup,O_Y);
-					for (i = 0; (i < 12) && (i < traveldistance+2); i++) {
+					for (i = 0; (i < 12) && (i < traveldistance); i++) {
 						if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
 							for (o = 0; o < 4; o++) {
 								if (lookup == 1 || lookup == 2 || (o != AVOID_WIDE_O_LOOKUP(bullet[j].o,lookup))) {
@@ -727,7 +727,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
 				targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
 				for (i = 0; i < max(max_x,max_y); i++) {
-					if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
+					if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0) {
 						if (i < 10) {
 							for (o = 0; o < 4; o++) {
 								u.cost[player][targetx][targety][o] = INT_MAX;
@@ -742,10 +742,11 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						targety += O_LOOKUP(tank[j].o,O_Y);
 					}
 				}
+				traveldistance = i+1;
 				for (lookup = 0; lookup < 4; lookup++) {
 					targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X) + AVOID_LOOKUP(tank[j].o,lookup,O_X);
 					targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y) + AVOID_LOOKUP(tank[j].o,lookup,O_Y);
-					for (i = 0; i < 12; i++) {
+					for (i = 0; i < 12 && i < traveldistance; i++) {
 						if (isTankInsideBounds(targetx,targety) && (board[targetx][targety] & B_WALL) == 0) {
 							for (o = 0; o < 4; o++) {
 								if (lookup == 1 || lookup == 2 || (o != AVOID_WIDE_O_LOOKUP(tank[j].o,lookup))) {
