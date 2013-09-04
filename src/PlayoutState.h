@@ -38,7 +38,8 @@ struct BaseState {
 class UtilityScores {
 public:
 	//(player)(x)(y)(o)
-	int cost[2][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
+	int simple_cost[2][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
+	int expensive_cost[4][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
 };
 
 struct Tank {

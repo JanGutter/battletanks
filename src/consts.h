@@ -32,6 +32,8 @@ struct Move {
 //A terminal score should dominate the normal scores
 #define TERMINAL_BONUS 36.0
 
+#define MCTS_CONF_MARGIN 3600.0
+
 #define PLAYER0 0
 #define PLAYER1 1
 
@@ -132,7 +134,7 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 #define B_DESTRUCTABLES B_WALL+B_BASE+B_TANK
 #define B_LOOKUP(o) (8 << (o))
 #define B_OPPOSITE(o) (8 << (o^1))
-#define B_ISCLEAR(b) (((b) & (B_WALL+B_TANK)) == B_EMPTY)
+#define B_ISCLEAR(b) (((b) & (B_WALL+B_BASE+B_TANK)) == B_EMPTY)
 #define B_ISBASE(b) (((b) & B_BASE) == B_BASE)
 #define B_ISOOB(b) (((b) & B_OOB) == B_OOB)
 

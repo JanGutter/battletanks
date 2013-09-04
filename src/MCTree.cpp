@@ -670,6 +670,7 @@ unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 	for (beta = 0; beta < 36; beta++) {
 		greedyconf += confidence[greedyalpha][beta];
 	}
+	bestalpha = greedyalpha;
 	bestconf = greedyconf;
 	for (alpha = 0; alpha < 36; alpha++) {
 		conf = 0;
@@ -685,7 +686,7 @@ unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 	cout << "Greedy confidence: " << greedyconf << endl;
 	cout << "MCTS confidence: " << bestconf << endl;
 
-	if ((bestconf - greedyconf) > 3600.0) {
+	if ((bestconf - greedyconf) > MCTS_CONF_MARGIN) {
 		cout << "Chose MCTS" << endl;
 		return bestalpha;
 	} else {
@@ -737,7 +738,6 @@ void MCTree::init(PlayoutState& reference_state, UtilityScores& reference_u)
 	//Only backprop to root!
 	path.clear();
 	backprop(path,results);
-
 }
 
 void MCTree::reset(PlayoutState& reference_state, UtilityScores& reference_u)
@@ -819,6 +819,7 @@ MCTree::MCTree()
 		worker_sfmt.push_back(sfmt);
 		expand_worker[i] = new tthread::thread(expand_subnodes,expand_param);
 	}
+
 }
 
 MCTree::~MCTree()

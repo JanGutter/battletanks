@@ -217,11 +217,12 @@ void PlayoutState::fireTanks()
 
 void PlayoutState::checkCollisions()
 {
-	unsigned int j,square,other_bullet,x,y,enemy_tanks,friendly_tanks,friendly_bullets,enemy_bullets,prevsquare;
+	unsigned int j,square,other_bullet,x,y,prevsquare;
 	int i;
 	bool baseok[2];
 	baseok[0] = true;
 	baseok[1] = true;
+	int active_tanks[2];
 
 	for (i = 0; i < 4; i++) {
 		bullet[i].tag = 0;
@@ -275,19 +276,18 @@ void PlayoutState::checkCollisions()
 				break;
 			case B_BASE:
 				bullet[i].active = 0;
-				winner = W_DRAW; //It's at least a draw
-				if (onBase(0,bullet[i].x,bullet[i].y)) {
+				if (onBase(PLAYER0,bullet[i].x,bullet[i].y)) {
 					//Player0's base has been destroyed
-					baseok[0] = false;
+					baseok[PLAYER0] = false;
 				} else {
 #if ASSERT
-					if (!onBase(1,bullet[i].x,bullet[i].y)) {
+					if (!onBase(PLAYER1,bullet[i].x,bullet[i].y)) {
 						cerr << "Base collision WITH NO BASE!" << endl;
 					}
 #endif
 					//cout << "W_PLAYER0" << endl;
 					//Player1's base has been destroyed
-					baseok[1] = false;
+					baseok[PLAYER1] = false;
 				}
 				gameover = true;
 				break;
@@ -296,19 +296,28 @@ void PlayoutState::checkCollisions()
 				if (other_bullet) {
 					//It's an empty square with at least one other bullet
 					bullet[i].tag = 1;
-				}//else: NO COLLISION!
+				}
+#if ASSERT
+				else {
+					if (square) {
+						cerr << "Phantom collision! " << (int)square << endl;
+					}
+					//else: NO COLLISION!
+				}
+#endif
 			}
 		}
+
 	}
 
 	if (gameover) {
-		if (!baseok[0] && !baseok[1]) {
+		if (!baseok[PLAYER0] && !baseok[PLAYER1]) {
 			winner = W_DRAW;
-		} else if (baseok[0] && !baseok[1]) {
+		} else if (baseok[PLAYER0] && !baseok[PLAYER1]) {
 			winner = W_PLAYER0;
 		} else {
 #if ASSERT
-			if (baseok[0] && baseok[1]) {
+			if (baseok[PLAYER0] && baseok[PLAYER1]) {
 				cerr << "gameover declared, but both bases are fine!" << endl;
 			}
 #endif
@@ -329,35 +338,24 @@ void PlayoutState::checkCollisions()
 			tank[i].active = 0;
 		}
 	}
-	stop_playout = false;
+
 	//Check for draw (no tanks and no bullets)
-	if (!gameover) {
-		friendly_tanks = 0;
-		enemy_tanks = 0;
-		enemy_bullets = 0;
-		friendly_bullets = 0;
-		for (i = 0; i < 2; i++) {
-			friendly_tanks += tank[i].active;
-			friendly_bullets += bullet[i].active;
-		}
-		for (i = 2; i < 4; i++) {
-			enemy_tanks += tank[i].active;
-			enemy_bullets += bullet[i].active;
-		}
-		gameover = ((friendly_tanks+enemy_tanks) == 0) && (friendly_bullets+enemy_bullets == 0);
+	if (!gameover && (tank[0].active+tank[1].active+tank[2].active+tank[3].active +
+			bullet[0].active+bullet[1].active+bullet[2].active+bullet[3].active == 0)) {
+		gameover = true;
 		winner = W_DRAW;
-		state_score = friendly_tanks*0.25 - enemy_tanks*0.25 + 0.5;
-		if (friendly_tanks != enemy_tanks) {
-			stop_playout = true;
+	}
+
+	stop_playout = false;
+	if (!gameover) {
+		active_tanks[PLAYER0] = 0;
+		active_tanks[PLAYER1] = 0;
+		for (i = 0; i < 4; i++) {
+			active_tanks[i/2] += tank[i].active;
 		}
-		if ((friendly_tanks+friendly_bullets == 0) || (enemy_tanks+enemy_bullets == 0)) {
-			if (friendly_tanks > 0) {
-				state_score = W_PLAYER0;
-				stop_playout = true;
-			} else if (enemy_tanks > 0) {
-				state_score = W_PLAYER1;
-				stop_playout = true;
-			}
+		state_score = active_tanks[PLAYER0]*0.20 - active_tanks[PLAYER1]*0.20 + 0.5;
+		if (active_tanks[PLAYER0] != active_tanks[PLAYER1]) {
+			stop_playout = true;
 		}
 	} else {
 		state_score = winner;
@@ -424,7 +422,7 @@ void PlayoutState::simulateTick()
 		min_x++;
 		max_x--;
 	}
-
+	gameover = false;
 	moveBullets();
 	checkCollisions();
 	if (gameover) {
@@ -532,7 +530,7 @@ double PlayoutState::playout(sfmt_t& sfmt, UtilityScores& u)
 		if (gameover) {
 			return winner;
 		}
-		if (stop_playout) {
+		if (stop_playout && (sfmt_genrand_uint32(&sfmt) % 10 == 0)) {
 			return state_score;
 		}
 	}
@@ -685,8 +683,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				targety = bullet[j].y;
 				for (i = 0; i < max(max_x,max_y); i++) {
 					if (isTankInsideBounds(targetx,targety)
-							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0
-							) {
+							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0) {
 						if (i < 10) {
 							for (o = 0; o < 4; o++) {
 								u.cost[player][targetx][targety][o] = INT_MAX;
@@ -699,6 +696,8 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 						u.cost[player][targetx][targety][O_OPPOSITE(bullet[j].o)] = i/2;
 						targetx += O_LOOKUP(bullet[j].o,O_X);
 						targety += O_LOOKUP(bullet[j].o,O_Y);
+					} else {
+						break;
 					}
 				}
 				traveldistance = i+1;
@@ -714,6 +713,8 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 							}
 							targetx += O_LOOKUP(bullet[j].o,O_X);
 							targety += O_LOOKUP(bullet[j].o,O_Y);
+						} else {
+							break;
 						}
 					}
 				}
@@ -796,6 +797,18 @@ int PlayoutState::cmdToUtility(int c, int tank_id, UtilityScores &u)
 	int x,y,o;
 	int player = tank_id/2;
 	TankState& t = tank[tank_id];
+	int playerid = tank_id/2;
+	int friendly_tanks = tank[playerid].active+tank[playerid+1].active;
+	int enemy_tanks = tank[(1-playerid)].active+tank[(1-playerid)+1].active;
+	//One tank goes limp
+	//TODO: furthest tank goes limp!
+	if ((enemy_tanks == 0 && friendly_tanks == 2 && tank_id == playerid+1) || !tank[tank_id].active ) {
+		if (c == C_NONE) {
+			return 0;
+		} else {
+			return INT_MAX;
+		}
+	}
 	switch (c) {
 	case C_FIRE:
 		if (!t.canfire) {

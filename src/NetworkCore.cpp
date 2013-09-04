@@ -230,7 +230,7 @@ void NetworkCore::play()
 			if (!state_synced) {
 				if (getStatus_resp.return_->playerName) {
 					myname = (*getStatus_resp.return_->playerName);
-#if DEBUG
+#if DEBUG > 1
 					cout << "my name: " << myname << endl;
 #endif
 				}
@@ -243,11 +243,11 @@ void NetworkCore::play()
 			/* ignoring getStatus_resp.return_->nextTickTime hopefully */
 			for (vector<ns1__player*>::iterator player = getStatus_resp.return_->players.begin(); player != getStatus_resp.return_->players.end(); ++player) {
 				its_me = false;
-#if DEBUG
+#if DEBUG > 1
 				cout << "Player: ";
 #endif
 				if ((*player)->name) {
-#if DEBUG
+#if DEBUG > 1
 					cout << (*(*player)->name);
 #endif
 					if ( (*(*player)->name) == myname) {
@@ -255,18 +255,18 @@ void NetworkCore::play()
 					}
 				} else {
 					cerr << "Warning, received player without name!" << endl;
-#if DEBUG
+#if DEBUG > 1
 					cout << "(anonymous)";
 #endif
 				}
 
 				player_offset = its_me ? 0 : 2;
 
-#if DEBUG
+#if DEBUG > 1
 				cout << endl;
 #endif
 				if (!state_synced && (*player)->base) {
-#if DEBUG
+#if DEBUG > 1
 					cout << "-- base at (" << (*player)->base->x << "," << (*player)->base->y << ")" << endl;
 #endif
 					state.base[player_offset/2].x = (*player)->base->x;
@@ -306,7 +306,7 @@ void NetworkCore::play()
 				}
 
 				if (!state_synced) {
-#if DEBUG
+#if DEBUG > 1
 					cout << "Syncing tanks" << endl;
 #endif
 					for (i = 0; i < num_recv; i++) {
@@ -363,7 +363,7 @@ void NetworkCore::play()
 				}
 
 				if (!state_synced) {
-#if DEBUG
+#if DEBUG > 1
 					cout << "Syncinc bullets" << endl;
 #endif
 					for (i = player_offset; i < 2+player_offset; i++) {
@@ -403,7 +403,7 @@ void NetworkCore::play()
 						}
 						for (i = player_offset; i < 2+player_offset; i++) {
 							if (!state.bullet[i].active) {
-#if DEBUG
+#if DEBUG > 1
 								cout << "Associated bullet id(" << received_bullets[j].id << ") with tank id(" << state.tank[i].id <<") by elimination" << endl;
 #endif
 								state.bullet[i] = received_bullets[j];
@@ -463,7 +463,7 @@ void NetworkCore::play()
 								if (found)
 								{
 									j--;
-#if DEBUG
+#if DEBUG > 1
 									cout << "Associated bullet id(" << received_bullets[i].id << ") with tank id(" << state.tank[j].id <<") by backtracking" << endl;
 #endif
 									state.bullet[j] = received_bullets[i];
@@ -472,7 +472,7 @@ void NetworkCore::play()
 									//Orphaned bullet: look for an inactive tank
 									for (j = player_offset; j < 2+player_offset; j++) {
 										if ((!state.tank[j].active) && (!state.bullet[j].active)) {
-#if DEBUG
+#if DEBUG > 1
 											cout << "Associated bullet id(" << received_bullets[i].id << ") with orphan" << endl;
 #endif
 											state.bullet[j] = received_bullets[i];
@@ -492,7 +492,7 @@ void NetworkCore::play()
 					}
 				}
 
-#if DEBUG
+#if DEBUG > 1
 				cout << "-=end Player=-" << endl;
 #endif
 			}
@@ -512,12 +512,12 @@ void NetworkCore::play()
 			}
 
 			if (getStatus_resp.return_->events) {
-#if DEBUG
+#if DEBUG > 1
 				cout << "Events:" << endl;
 #endif
 				for (vector<ns1__blockEvent*>::iterator block_event_iter = getStatus_resp.return_->events->blockEvents.begin(); block_event_iter != getStatus_resp.return_->events->blockEvents.end(); ++block_event_iter) {
 					ns1__blockEvent &block_event = *(*block_event_iter);
-#if DEBUG
+#if DEBUG > 1
 					cout << "-- block";
 					cout << " at (" << block_event.point->x << "," << block_event.point->y << ")";
 					cout << " new state " << (*block_event.newState);
@@ -568,7 +568,7 @@ void NetworkCore::play()
 					cout << endl;
 				}
 #endif
-#if DEBUG
+#if DEBUG > 1
 				cout << "-=end Events=-" << endl;
 #endif
 			} //if events
@@ -590,7 +590,7 @@ void NetworkCore::play()
 				fout << state;
 			}*/
 
-#if DEBUG
+#if DEBUG > 1
 			cout << "milliseconds to next tick: " << getStatus_resp.return_->millisecondsToNextTick << endl;
 #endif
 			nexttick = getStatus_resp.return_->millisecondsToNextTick;
@@ -614,14 +614,14 @@ void NetworkCore::play()
 		s.destroy();
 		comms_timer.stop();
 
-#if DEBUG
+#if DEBUG > 1
 		cout << "GetStatus [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_getstatus.mean() << " ms]" << endl;
 		cout << "full processing time was [" << comms_timer.get_milliseconds() << " ms] " << endl;
 #endif
 		if (repeated_tick) {
 			//Wait a little bit longer next time;
 			settle_time += settle_time/4;
-#if DEBUG
+#if DEBUG > 1
 			cout << "Repeated tick!" << endl;
 			cout << "settle_time now: " << settle_time << endl;
 #endif
@@ -631,7 +631,7 @@ void NetworkCore::play()
 		if (skipped_tick) {
 			if (nexttick < safety_margin) {
 				settle_time -= settle_time/4;
-#if DEBUG
+#if DEBUG > 1
 				cout << "Missed a tick!" << endl;
 				cout << "settle_time now: " << settle_time << endl;
 #endif
@@ -644,7 +644,7 @@ void NetworkCore::play()
 
 		//At this point, we should be synced, settled and have a window to do work
 		int64_t window = nexttick-comms_timer.get_milliseconds()-safety_margin;
-#if DEBUG
+#if DEBUG > 1
 		cout << "Expecting next tick at [" << nexttick << "-" << comms_timer.get_milliseconds() << "-" << safety_margin << " ms] = " << window  << " ms"<< endl;
 #endif
 		if (soaperr == SOAP_OK) {
@@ -665,7 +665,13 @@ void NetworkCore::play()
 			unsigned char width = 3;
 			unsigned int alpha;
 			int greedycmd[2];
-
+#if DEBUG
+			PlayoutState paintme = state;
+			paintme.drawBases();
+			paintme.drawBullets();
+			paintme.drawTanks();
+			paintme.paint();
+#endif
 			sleeptime = safety_margin;
 
 			switch (policy) {
@@ -701,11 +707,13 @@ void NetworkCore::play()
 #endif
 					}
 				}
-#if 0
+#if 1
 				if ((state.tank[2].active+state.tank[3].active) == 0 &&
 						(state.tank[0].active+state.tank[1].active) == 2) {
 #if DEBUG
-					cout << "GOING HALF-LIMP!" << endl;
+					if (policy == POLICY_GREEDY) {
+						cout << "GOING HALF-LIMP!" << endl;
+					}
 #endif
 					action[1] = ns1__action__NONE;
 				}
@@ -769,8 +777,27 @@ void NetworkCore::play()
 					loop_timer.restart();
 				}
 				alpha = mc_tree->best_alpha(C_TO_ALPHA(greedycmd[0],greedycmd[1]));
+
 				action[0] = hton_cmd(C_T0(alpha,0));
 				action[1] = hton_cmd(C_T1(alpha,0));
+#if DEBUG
+				cout << "After MCTS: ";
+				for (i = 0; i < 2; i++) {
+					if (state.tank[i].active) {
+						cout << " tank[" << i << "]: " << action2str(action[i]);
+					}
+				}
+				cout << endl;
+#endif
+#if 1
+				if ((state.tank[2].active+state.tank[3].active) == 0 &&
+						(state.tank[0].active+state.tank[1].active) == 2) {
+#if DEBUG
+					cout << "GOING HALF-LIMP!" << endl;
+#endif
+					action[1] = ns1__action__NONE;
+				}
+#endif
 				break;
 			default:
 			case POLICY_RANDOM:
@@ -796,7 +823,7 @@ void NetworkCore::play()
 			} else {
 				cerr << "OVERRAN WINDOW!" << endl;
 			}
-#if DEBUG
+#if DEBUG > 1
 			cout << "AI took " << ai_timer.get_milliseconds() << " ms, shortening the window to: " << window << endl;
 			cout << "AI chose";
 			for (i = 0; i < 2; i++) {
@@ -810,7 +837,7 @@ void NetworkCore::play()
 				Sleep((uint32_t)(window));
 			}
 
-#if DEBUG
+#if DEBUG > 1
 			cout << "Finished delaying, next tick should be imminent!" << endl;
 #endif
 			for (tankid = 0; tankid < 2; tankid++) {
@@ -829,25 +856,25 @@ void NetworkCore::play()
 					s.destroy();
 				}
 			}
-#if DEBUG
+#if DEBUG > 1
 			cout << "Last SetAction [" << soap_timer.get_milliseconds() << " ms] [avg: " << stat_setaction.mean() << " ms]" << endl;
 			cout << "Waiting for end of turn in [" << sleeptime << " ms]" << endl;
 #endif
 			//From here on it's pondering time!
 			if (sleeptime+settle_time > 0 && (sleeptime < safety_margin)) {
-#if DEBUG
+#if DEBUG > 1
 				cout << "setAction was sent in time, waiting for " <<sleeptime+settle_time <<" ms" << endl;
 #endif
 				Sleep((uint32_t)sleeptime+settle_time);
 			} else {
 				if (sleeptime > (2*safety_margin)) {
 					safety_margin += safety_margin/4;
-#if DEBUG
+#if DEBUG > 1
 					cout << "setAction was not sent in time!" << endl;
 					cout << "Increasing safety_margin to: " << safety_margin << endl;
 #endif
 				} else {
-#if DEBUG
+#if DEBUG > 1
 					cout << "setAction appears to be sent in time, waiting for " << safety_margin+settle_time << " ms" << endl;
 #endif
 					Sleep((uint32_t)safety_margin+settle_time);
