@@ -19,7 +19,7 @@
 #include "MCTree.h"
 #include <fstream>
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define NUMC 10
 #define NUMPLAYERS 2

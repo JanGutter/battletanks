@@ -808,6 +808,7 @@ MCTree::MCTree()
 	root_id = 1;
 	allocated_to_root.push_back(root_id);
 	num_workers = min(tthread::thread::hardware_concurrency(),MAXTHREADS);
+	num_workers = max(num_workers,MINTHREADS);
 	workers_keepalive = true;
 	srand((unsigned int)(time(NULL)));
 	//workqueue_mutex.lock();

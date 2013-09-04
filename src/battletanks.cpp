@@ -25,7 +25,7 @@
 
 using namespace std;
 #define BENCHMARK 1
-#define DEBUG 1
+#define DEBUG 0
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
 #define MODE_SELFPLAY 3

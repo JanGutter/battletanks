@@ -24,6 +24,7 @@ typedef unsigned long int tree_size_t;
 class Node;
 
 const unsigned int MAXTHREADS = 8;
+const unsigned int MINTHREADS = 2;
 #define SUBNODE_COUNT (36*36)
 #define TASK_RING_SIZE (2048)
 #define RESULT_RING_SIZE (2048)

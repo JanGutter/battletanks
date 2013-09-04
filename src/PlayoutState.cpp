@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <fstream>
 
-#define ASSERT 1
+#define ASSERT 0
 #define DEBUG 0
 
 using namespace std;
