@@ -199,6 +199,7 @@ int main(int argc, char** argv) {
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
 		node_state.populateUtilityScores(*u);
+		node_state.save(*u);
 		for (i = 0; i < 1; i++) {
 			tmp_state = node_state;
 			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);

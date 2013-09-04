@@ -100,6 +100,7 @@ public:
 	void drawTankObstacle(const int t);
 	void drawTinyTank(const int t, const int block);
 	void populateUtilityScores(UtilityScores &u);
+	void save(UtilityScores& u);
 	int cmdToSimpleUtility(int c, int t, UtilityScores &u);
 	int cmdToExpensiveUtility(int c, int t, UtilityScores &u);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);

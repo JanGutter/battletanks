@@ -26,6 +26,7 @@
 #define NUMTANKS 2
 #define HALFLIMP 0
 #define AREYOUNUTS 0
+#define SAVESTARTMAP 0
 
 const int fixed_commands[NUMPLAYERS][NUMTANKS][NUMC] = {
 		{ //"Player One"
@@ -198,7 +199,9 @@ void NetworkCore::play()
 	bool skipped_tick;
 	UtilityScores* u = new UtilityScores;
 	MCTree* mc_tree = new MCTree;
-
+#if SAVESTARTMAP
+	bool firstrun = true;
+#endif
 	stat_getstatus.init();
 	stat_setaction.init();
 
@@ -585,12 +588,13 @@ void NetworkCore::play()
 				mc_tree->init(state,*u);
 			}
 			state_synced = true;
-			/*
+#if SAVESTARTMAP
 			if (firstrun) {
 				firstrun = false;
 				ofstream fout("btboard.map");
 				fout << state;
-			}*/
+			}
+#endif
 
 #if DEBUG > 1
 			cout << "milliseconds to next tick: " << getStatus_resp.return_->millisecondsToNextTick << endl;

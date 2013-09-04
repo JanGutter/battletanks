@@ -17,6 +17,7 @@
 #include "MCTree.h"
 #include <string.h>
 #include <limits.h>
+#include <fstream>
 
 #define ASSERT 1
 #define DEBUG 0
@@ -628,19 +629,28 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 		//Seed with possible final positions
 		for (o = 0; o < 4; o++) {
 			//The 4 dirs for the base
+			t.cost = 0;
+			int wallcount = 0;
+			t.x = base[1-player].x - 3*O_LOOKUP(o,O_X);
+			t.y = base[1-player].y - 3*O_LOOKUP(o,O_Y);
+			int dx = -O_LOOKUP(o,O_X);
+			int dy = -O_LOOKUP(o,O_Y);
+			t.o = o;
 			for (i = 0; i < max(max_x,max_y); i++) {
-				t.cost = i/2 + 1;
-				t.o = o;
-				targetx = base[1-player].x;
-				targety = base[1-player].y;
-				t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
-				t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
-				if (isTankInsideBounds(t.x,t.y) && clearFireTrajectory(t.x,t.y,t.o,targetx,targety)) {
-					u.simplecost[player][t.x][t.y][t.o] = t.cost;
-					frontier.push(t);
-				} else {
+				if ((i & 1) == 0) {
+					t.cost += (wallcount+1);
+				}
+				if (!isTankInsideBounds(t.x,t.y)) {
 					break;
 				}
+				if ((obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) != 0) {
+					wallcount++;
+					t.cost+=wallcount;
+				}
+				u.simplecost[player][t.x][t.y][t.o] = t.cost;
+				frontier.push(t);
+				t.x += dx;
+				t.y += dy;
 			}
 		}
 		//Flood-fill backward to determine shortest greedy path
@@ -720,21 +730,32 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 		}
 
 		//Seed the base location
+		//The 4 dirs for the base
 		for (o = 0; o < 4; o++) {
 			//The 4 dirs for the base
+			t.cost = 0;
+			int wallcount = 0;
+			t.x = base[1-player].x - 3*O_LOOKUP(o,O_X);
+			t.y = base[1-player].y - 3*O_LOOKUP(o,O_Y);
+			int dx = -O_LOOKUP(o,O_X);
+			int dy = -O_LOOKUP(o,O_Y);
+			t.o = o;
 			for (i = 0; i < max(max_x,max_y); i++) {
-				t.cost = i/2 + 1;
-				t.o = o;
-				targetx = base[1-player].x;
-				targety = base[1-player].y;
-				t.x = targetx - (3+i)*O_LOOKUP(o,O_X);
-				t.y = targety - (3+i)*O_LOOKUP(o,O_Y);
-				if (isTankInsideBounds(t.x,t.y) && clearFireTrajectory(t.x,t.y,t.o,targetx,targety)) {
-					u.expensivecost[tankid][t.x][t.y][t.o] = t.cost;
-					frontier.push(t);
-				} else {
+				if ((i & 1) == 0) {
+					t.cost += (wallcount+1);
+				}
+				if (!isTankInsideBounds(t.x,t.y)) {
 					break;
 				}
+				if ((obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) != 0) {
+					wallcount++;
+					t.cost+=wallcount;
+				}
+				u.expensivecost[tankid][t.x][t.y][t.o] = t.cost;
+				frontier.push(t);
+				t.x += dx;
+				t.y += dy;
+
 			}
 		}
 		//Flood-fill backward to determine shortest greedy path
@@ -992,6 +1013,32 @@ int PlayoutState::cmdToExpensiveUtility(int c, int tank_id, UtilityScores &u)
 		return INT_MAX;
 	}
 }
+
+void PlayoutState::save(UtilityScores& u)
+{
+	ofstream outfile("simplecost.p0.down");
+	int o = O_DOWN;
+	int i,j;
+	int maxcost = 0;
+	for (i = min_x; i < max_x; i++) {
+		for (j = min_y; j < max_y; j++) {
+			if (u.simplecost[0][i][j][o] != INT_MAX) {
+				maxcost = max(maxcost,u.simplecost[0][i][j][o]);
+			}
+		}
+	}
+	for (j = min_y; j < max_y; j++) {
+		for (i = min_x; i < max_x; i++) {
+			if (u.simplecost[0][i][j][o] != INT_MAX) {
+				outfile << u.simplecost[0][i][j][o]<<" ";
+			} else {
+				outfile << maxcost <<" ";
+			}
+		}
+		outfile << endl;
+	}
+}
+
 
 void PlayoutState::paint(UtilityScores& u)
 {
