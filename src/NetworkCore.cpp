@@ -24,6 +24,8 @@
 #define NUMC 10
 #define NUMPLAYERS 2
 #define NUMTANKS 2
+#define HALFLIMP 0
+#define AREYOUNUTS 0
 
 const int fixed_commands[NUMPLAYERS][NUMTANKS][NUMC] = {
 		{ //"Player One"
@@ -689,7 +691,7 @@ void NetworkCore::play()
 						int bestcost = INT_MAX;
 						int cost;
 						for (int c = 0; c < 6; c++) {
-							cost = state.cmdToUtility(c,tankid,*u);
+							cost = state.cmdToExpensiveUtility(c,tankid,*u);
 #if DEBUG
 							cout << " " << cmd2str(c) << ": " << cost;
 #endif
@@ -707,7 +709,7 @@ void NetworkCore::play()
 #endif
 					}
 				}
-#if 1
+#if HALFLIMP
 				if ((state.tank[2].active+state.tank[3].active) == 0 &&
 						(state.tank[0].active+state.tank[1].active) == 2) {
 #if DEBUG
@@ -719,7 +721,7 @@ void NetworkCore::play()
 				}
 #endif
 
-#ifdef AREYOUNUTS
+#if AREYOUNUTS
 				if (state.tickno > 55) {
 					cout << "GOING LIMP!" << endl;
 					action[0] = ns1__action__NONE;
@@ -789,7 +791,7 @@ void NetworkCore::play()
 				}
 				cout << endl;
 #endif
-#if 1
+#if HALFLIMP
 				if ((state.tank[2].active+state.tank[3].active) == 0 &&
 						(state.tank[0].active+state.tank[1].active) == 2) {
 #if DEBUG

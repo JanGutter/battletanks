@@ -386,13 +386,23 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 				//Get the cost of the moves
 				for (j = 0; j < 4; j++) {
 					cmd_and_utility.first = j+C_UP;
-					cmd_and_utility.second = node_state.cmdToUtility(j+C_UP,i,u);
+					if (node_id == root_id) {
+						cmd_and_utility.second = node_state.cmdToExpensiveUtility(j+C_UP,i,u);
+					} else {
+						cmd_and_utility.second = node_state.cmdToSimpleUtility(j+C_UP,i,u);
+					}
 					cmd_and_utilities[j] = cmd_and_utility;
 				}
 
 				sort(cmd_and_utilities.begin(), cmd_and_utilities.end(), sort_pair_second<int, int>());
 				if (node_state.tank[i].canfire) {
-					if (cmd_and_utilities[0].second < node_state.cmdToUtility(C_FIRE,i,u)) {
+					int fire_utility;
+					if (node_id == root_id) {
+						fire_utility = node_state.cmdToExpensiveUtility(C_FIRE,i,u);
+					} else {
+						fire_utility = node_state.cmdToSimpleUtility(C_FIRE,i,u);
+					}
+					if (cmd_and_utilities[0].second < fire_utility) {
 						//Move then fire
 						tree[node_id].cmd_order[i][0] = (unsigned char) cmd_and_utilities[0].first;
 						tree[node_id].cmd_order[i][1] = (unsigned char) C_FIRE;

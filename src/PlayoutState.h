@@ -38,8 +38,8 @@ struct BaseState {
 class UtilityScores {
 public:
 	//(player)(x)(y)(o)
-	int simple_cost[2][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
-	int expensive_cost[4][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
+	int simplecost[2][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
+	int expensivecost[4][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
 };
 
 struct Tank {
@@ -62,6 +62,7 @@ public:
 	BulletState bullet[4]; //(index is the same as tank[4])
 	BaseState base[2]; //Base 0 belongs to PLAYER0, Base 1 belongs to PLAYER1
 	unsigned char board[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+	unsigned char obstacles[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
 	int min_x,min_y;
 	int max_x,max_y;
 	bool gameover;
@@ -96,9 +97,11 @@ public:
 	bool incomingBullet(const int x, const int y, const int o);
 	bool isTankAt(const int t, const int x, const int y);
 	void drawTank(const int t, const int block);
+	void drawTankObstacle(const int t);
 	void drawTinyTank(const int t, const int block);
 	void populateUtilityScores(UtilityScores &u);
-	int cmdToUtility(int c, int t, UtilityScores &u);
+	int cmdToSimpleUtility(int c, int t, UtilityScores &u);
+	int cmdToExpensiveUtility(int c, int t, UtilityScores &u);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);
 	void paint(UtilityScores& u);
