@@ -791,31 +791,33 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 			}
 		}
 
-		//Put down breadcrumbs to turn and fire for active defence
-		for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
-			if (bullet[j].active) {
-				targetx = bullet[j].x;
-				targety = bullet[j].y;
-				deltax = O_LOOKUP(bullet[j].o,O_X);
-				deltay = O_LOOKUP(bullet[j].o,O_Y);
-				o = bullet[j].o;
-			} else if (tank[j].active) {
-				targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
-				targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
-				deltax = O_LOOKUP(tank[j].o,O_X);
-				deltay = O_LOOKUP(tank[j].o,O_Y);
-				o = tank[j].o;
-			} else {
-				continue;
-			}
-			for (i = 0; i < traveldistance[j]+12; i++) {
-				if (isTankInsideBounds(targetx,targety)
-						&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
-					u.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = i+1;
-					targetx += deltax;
-					targety += deltay;
+		if (!bullet[tankid].active) {
+			//Put down breadcrumbs to turn and fire for active defence
+			for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
+				if (bullet[j].active) {
+					targetx = bullet[j].x;
+					targety = bullet[j].y;
+					deltax = O_LOOKUP(bullet[j].o,O_X);
+					deltay = O_LOOKUP(bullet[j].o,O_Y);
+					o = bullet[j].o;
+				} else if (tank[j].active) {
+					targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
+					targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
+					deltax = O_LOOKUP(tank[j].o,O_X);
+					deltay = O_LOOKUP(tank[j].o,O_Y);
+					o = tank[j].o;
 				} else {
-					break;
+					continue;
+				}
+				for (i = 0; i < traveldistance[j]+12; i++) {
+					if (isTankInsideBounds(targetx,targety)
+							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
+						u.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = i+1;
+						targetx += deltax;
+						targety += deltay;
+					} else {
+						break;
+					}
 				}
 			}
 		}
@@ -1037,6 +1039,29 @@ void PlayoutState::save(UtilityScores& u)
 		}
 		outfile << endl;
 	}
+	outfile.close();
+	outfile.open("expensivecost.t0.down");
+	o = O_DOWN;
+	maxcost = 0;
+	for (i = min_x; i < max_x; i++) {
+		for (j = min_y; j < max_y; j++) {
+			if (u.expensivecost[0][i][j][o] != INT_MAX) {
+				maxcost = max(maxcost,u.simplecost[0][i][j][o]);
+			}
+		}
+	}
+	for (j = min_y; j < max_y; j++) {
+		for (i = min_x; i < max_x; i++) {
+			if (u.expensivecost[0][i][j][o] != INT_MAX) {
+				outfile << u.simplecost[0][i][j][o]<<" ";
+			} else {
+				outfile << maxcost <<" ";
+			}
+		}
+		outfile << endl;
+	}
+	outfile.close();
+
 }
 
 
@@ -1050,7 +1075,7 @@ void PlayoutState::paint(UtilityScores& u)
 		int maxcost = 0;
 		for (i = min_x; i < max_x; i++) {
 			for (j = min_y; j < max_y; j++) {
-				if (u.simplecost[0][i][j][o] != INT_MAX) {
+				if (u.expensivecost[0][i][j][o] != INT_MAX) {
 					maxcost = max(maxcost,u.simplecost[0][i][j][o]);
 				}
 			}
@@ -1058,7 +1083,7 @@ void PlayoutState::paint(UtilityScores& u)
 		cout << maxcost << endl;
 		for (j = min_y; j < max_y; j++) {
 			for (i = min_x; i < max_x; i++) {
-				if (u.simplecost[0][i][j][o] != INT_MAX) {
+				if (u.expensivecost[0][i][j][o] != INT_MAX) {
 					cout << ((u.simplecost[0][i][j][o] - 1)*10/maxcost);
 				} else {
 					cout << "*";

@@ -32,7 +32,7 @@ struct Move {
 //A terminal score should dominate the normal scores
 #define TERMINAL_BONUS 36.0
 
-#define MCTS_CONF_MARGIN 3600.0
+#define MCTS_CONF_MARGIN 2000.0
 
 #define PLAYER0 0
 #define PLAYER1 1

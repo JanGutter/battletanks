@@ -692,15 +692,19 @@ unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 			bestalpha = alpha;
 		}
 	}
-
+#if DEBUG
 	cout << "Greedy confidence: " << greedyconf << endl;
 	cout << "MCTS confidence: " << bestconf << endl;
-
+#endif
 	if ((bestconf - greedyconf) > MCTS_CONF_MARGIN) {
+#if DEBUG
 		cout << "Chose MCTS" << endl;
+#endif
 		return bestalpha;
 	} else {
+#if DEBUG
 		cout << "Chose Greedy" << endl;
+#endif
 		return greedyalpha;
 	}
 }
@@ -797,7 +801,7 @@ MCTree::MCTree()
 
 	//TODO: figure out a good value for tree_size
 	//tree_size = 100000l;
-	tree_size = 200000l;
+	tree_size = 100000l;
 	tree = new Node[tree_size];
 	unallocated_count = tree_size-2; //0 is reserved and 1 belongs to root
 	for (i = 2; i < tree_size; i++) {

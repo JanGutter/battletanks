@@ -179,8 +179,6 @@ int main(int argc, char** argv) {
 		mc_tree->tree[mc_tree->root_id].print(*mc_tree);
 		delete u;
 	} else if (mode == MODE_SELFPLAY) {
-#if BENCHMARK
-#endif
 		int i;
 		UtilityScores* u = new UtilityScores;
 		PlayoutState node_state;
@@ -199,7 +197,7 @@ int main(int argc, char** argv) {
 		tmp_state = node_state;
 		tmp_state.updateCanFire(node_state);
 		node_state.populateUtilityScores(*u);
-		node_state.save(*u);
+		node_state.paint(*u);
 		for (i = 0; i < 1; i++) {
 			tmp_state = node_state;
 			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);
