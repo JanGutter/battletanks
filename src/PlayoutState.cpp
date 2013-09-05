@@ -581,7 +581,6 @@ bool PlayoutState::clearPath(int x, int y, int o)
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
 		clear = (obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_WALL|B_OOB)) == 0;
-		clear = clear && !insideAnyTank(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y));
 	}
 	return clear;
 }
@@ -630,7 +629,6 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 		for (o = 0; o < 4; o++) {
 			//The 4 dirs for the base
 			t.cost = 0;
-			int wallcount = 0;
 			t.x = base[1-player].x - 3*O_LOOKUP(o,O_X);
 			t.y = base[1-player].y - 3*O_LOOKUP(o,O_Y);
 			int dx = -O_LOOKUP(o,O_X);
@@ -638,14 +636,13 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 			t.o = o;
 			for (i = 0; i < max(max_x,max_y); i++) {
 				if ((i & 1) == 0) {
-					t.cost += (wallcount+1);
+					t.cost++;
 				}
 				if (!isTankInsideBounds(t.x,t.y)) {
 					break;
 				}
 				if ((obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) != 0) {
-					wallcount++;
-					t.cost+=wallcount;
+					break;
 				}
 				u.simplecost[player][t.x][t.y][t.o] = t.cost;
 				frontier.push(t);
@@ -734,7 +731,6 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 		for (o = 0; o < 4; o++) {
 			//The 4 dirs for the base
 			t.cost = 0;
-			int wallcount = 0;
 			t.x = base[1-player].x - 3*O_LOOKUP(o,O_X);
 			t.y = base[1-player].y - 3*O_LOOKUP(o,O_Y);
 			int dx = -O_LOOKUP(o,O_X);
@@ -742,20 +738,18 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 			t.o = o;
 			for (i = 0; i < max(max_x,max_y); i++) {
 				if ((i & 1) == 0) {
-					t.cost += (wallcount+1);
+					t.cost++;
 				}
 				if (!isTankInsideBounds(t.x,t.y)) {
 					break;
 				}
 				if ((obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) != 0) {
-					wallcount++;
-					t.cost+=wallcount;
+					break;
 				}
 				u.expensivecost[tankid][t.x][t.y][t.o] = t.cost;
 				frontier.push(t);
 				t.x += dx;
 				t.y += dy;
-
 			}
 		}
 		//Flood-fill backward to determine shortest greedy path
@@ -812,7 +806,7 @@ void PlayoutState::populateUtilityScores(UtilityScores &u)
 				for (i = 0; i < traveldistance[j]+12; i++) {
 					if (isTankInsideBounds(targetx,targety)
 							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
-						u.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = i+1;
+						u.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = (i/2)+1;
 						targetx += deltax;
 						targety += deltay;
 					} else {
