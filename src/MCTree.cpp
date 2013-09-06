@@ -19,7 +19,7 @@
 #include <iomanip>
 #include <fstream>
 
-#define DEBUG 0
+#define DEBUG 1
 #define ASSERT 0
 
 inline double UCB1T_score_alpha(unsigned long int t_, double r_, double sigma_, double t)
@@ -271,7 +271,7 @@ void expand_subnodes(void* thread_param) {
 	delete parameters;
 	unsigned int taskid;
 	int tasks_claimed;
-#if DEBUG
+#if DEBUG > 1
 	cout << "Thread (" << threadid << ") starting up" << endl;
 #endif
 	mc_tree->taskqueue_mutex.lock();
@@ -332,13 +332,13 @@ void expand_subnodes(void* thread_param) {
 	mc_tree->workers_awake--;
 	mc_tree->workers_running--;
 	if (!mc_tree->workers_running) {
-#if DEBUG
+#if DEBUG > 1
 		cout << "Thread (" << threadid << ") turning off the lights..." << endl;
 #endif
 		mc_tree->workers_quit.notify_one();
 	}
 	mc_tree->taskqueue_mutex.unlock();
-#if DEBUG
+#if DEBUG > 1
 	cout << "Thread (" << threadid << ") exiting" << endl;
 #endif
 }
@@ -371,7 +371,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 		//cerr << "Ran out of tree!" << endl;
 		return; //Silently fail
 	}
-#if DEBUG
+#if DEBUG > 1
 	cout << "Expanding [" << node_id << "] to width: " << (int)width << endl;
 #endif
 	if (tree[node_id].r.count() == 1) {
@@ -556,7 +556,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState&
 	}
 #endif
 	tree[node_id].expanded_to = max(width,tree[node_id].expanded_to);
-#if DEBUG
+#if DEBUG > 1
 	cout << "[" << node_id << "] expanded to: " << (int)tree[node_id].expanded_to << endl;
 #endif
 }
@@ -565,13 +565,13 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 {
 	Move m;
 	PlayoutState tmp_state;
-#if DEBUG
+#if DEBUG > 1
 	cout << "Select at node: " << node_id << endl;
 #endif
 	while (tree[node_id].expanded_to >= width && !tree[node_id].terminal) {
 		m.alpha = tree[node_id].alpha(*this);
 		m.beta = tree[node_id].beta(*this);
-#if DEBUG
+#if DEBUG > 1
 		cout << "UCB1Tuned returned alpha:" << m.alpha << " beta:" << m.beta << endl;
 #endif
 		if (m.alpha != -1 && m.beta != -1 && child_explored(tree[node_id].child[m.alpha][m.beta])) {
@@ -584,11 +584,11 @@ void MCTree::select(unsigned char width, vector<Move>& path, tree_size_t& node_i
 			cerr << "Oops, select alpha/beta is invalid! [" << node_id << "]" << endl;
 			break;
 		}
-#if DEBUG
+#if DEBUG > 1
 		cout << "Select at node [" << node_id << "] with c:" << tree[node_id].r.count() << endl;
 #endif
 	}
-#if DEBUG
+#if DEBUG > 1
 	cout << "[" << node_id << "] c:" << tree[node_id].r.count() << " terminal:" << tree[node_id].terminal << endl;
 #endif
 }
