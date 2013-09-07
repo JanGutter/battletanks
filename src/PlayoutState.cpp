@@ -87,9 +87,9 @@ bool PlayoutState::canRotate(const int x, const int y, const int o, board_t& obs
 
 bool PlayoutState::insideTank(const unsigned int t, const int x, const int y)
 {
-//	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
-	return tank[t].active && x < tank[t].x+3 && x > tank[t].x-3 &&
-			y < tank[t].y+3 && y < tank[t].y-3;
+	//	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
+	return tank[t].active && (x < tank[t].x+3) && (x > tank[t].x-3) &&
+			(y < tank[t].y+3) && (y > tank[t].y-3);
 }
 
 bool PlayoutState::insideAnyTank(const int x, const int y)
@@ -104,7 +104,7 @@ bool PlayoutState::insideAnyTank(const int x, const int y)
 
 bool PlayoutState::insideTinyTank(const int t, const int x, const int y)
 {
-//	return (tank[t].active && (abs(tank[t].x - x) < 2) && (abs(tank[t].y - y) < 2));
+	//	return (tank[t].active && (abs(tank[t].x - x) < 2) && (abs(tank[t].y - y) < 2));
 	return tank[t].active && x < tank[t].x+2 && x > tank[t].x+2 && y < tank[t].y+2 && y > tank[t].y-2;
 }
 
@@ -812,8 +812,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 					targety = tank[comradeid].y;
 					for (i = 0; i < max_y; i++) {
 						//Bail out at 80+ moves ahead.
-						scored_cmds_t cmds;
-						o = bestO(targetx,targety,utility.expensivecost[comradeid],cmds);
+						o = bestO(targetx,targety,utility.expensivecost[comradeid]);
 						targetx += O_LOOKUP(o,O_X);
 						targety += O_LOOKUP(o,O_Y);
 						drawTankObstacle(targetx,targety,obstacles);
@@ -955,8 +954,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 	int friendly_tanks = t.active+comrade.active;
 	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
 
-	int besto = bestO(t.x,t.y,costmatrix,cmds);
-
+	int besto = bestOCMD(t.x,t.y,costmatrix,cmds);
 	cmd.first = C_NONE;
 	cmd.second = costmatrix[t.x][t.y][t.o];
 	//One tank goes limp
@@ -977,27 +975,30 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
 		i = 0;
-
 		while (insideBounds(x,y) && !onTarget(player,x,y)) {
-			if (wallcount == 0 && incomingBullet(x,y,t.o)) {
-				return 0; //Bullet heading this way, FIRE!
+			//TODO: switch to map lookup?
+			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
+				cmd.second = 0;
+				break;
 			}
 			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
 			i++;
 			x += O_LOOKUP(t.o,O_X);
 			y += O_LOOKUP(t.o,O_Y);
 		}
-		hitcost = INT_MAX-1;
-		if (onTarget(player,x,y)) {
-			//HIT!
-			hitcost = ((i/2)+wallcount+1);
-		}
-		if ((t.o == besto) && clearablePath(t.x,t.y,t.o) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y))) {
-			//Shoot to clear a space to move in
-			cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
-		} else {
-			//Just shoot
-			cmd.second = hitcost;
+		if (cmd.second) {
+			hitcost = INT_MAX-1;
+			if (onTarget(player,x,y)) {
+				//HIT!
+				hitcost = ((i/2)+wallcount+1);
+			}
+			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
+				//Shoot to clear a space to move in
+				cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]-1);
+			} else {
+				//Just shoot
+				cmd.second = hitcost;
+			}
 		}
 	}
 	cmds.push_back(cmd);
@@ -1151,17 +1152,33 @@ int PlayoutState::cmdToExpensiveUtility(int c, int tank_id)
 }
 #endif
 
-int PlayoutState::bestO(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds)
+int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds)
 {
 	scored_cmd_t o_score;
 	int o;
 	for (o = 0; o < 4; o++) {
-		o_score.first = o;
+		o_score.first = o+C_UP;
 		o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
 		cmds.push_back(o_score);
 	}
 	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
 	return cmds[0].first;
+}
+
+int PlayoutState::bestO(int x, int y, costmatrix_t& costmatrix)
+{
+	int besto = O_UP;
+	int bestscore = INT_MAX;
+	int score;
+	int o;
+	for (o = 0; o < 4; o++) {
+		score = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
+		if (score < bestscore) {
+			bestscore = score;
+			besto = o;
+		}
+	}
+	return besto;
 }
 
 void PlayoutState::paintUtilityScores(UtilityScores& utility)
@@ -1177,7 +1194,7 @@ void PlayoutState::paintUtilityScores(UtilityScores& utility)
 
 	for (y = 0; y < max_y; y++) {
 		for (x = 0; x < max_x; x++) {
-			besto = 0;
+			besto = O_UP;
 			bestscore = INT_MAX;
 			bestcount = 0;
 			if (isTankInsideBounds(x,y)) {

@@ -115,7 +115,8 @@ public:
 	void updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles);
 	bool lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty);
 	void save();
-	int bestO(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	int bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	int bestO(int x, int y, costmatrix_t& costmatrix);
 	//int cmdToSimpleUtility(int c, int t);
 	int bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cmds);
 	//int cmdToExpensiveUtility(int c, int t);

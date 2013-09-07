@@ -19,7 +19,7 @@
 #include "MCTree.h"
 #include <fstream>
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define NUMC 2
 #define NUMPLAYERS 2
@@ -675,12 +675,7 @@ void NetworkCore::play()
 			unsigned int alpha;
 			int greedycmd[2];
 #if DEBUG
-			PlayoutState* paintme = new PlayoutState(state);
-			paintme->drawBases();
-			paintme->drawBullets();
-			paintme->drawTanks();
-			paintme->paint();
-			delete paintme;
+			mc_tree->root_state->paint();
 #endif
 			sleeptime = safety_margin;
 
@@ -692,12 +687,11 @@ void NetworkCore::play()
 				greedycmd[1] = C_NONE;
 				for (tankid = 0; tankid < 2; tankid++) {
 					if (state->tank[tankid].active) {
+						scored_cmds_t cmds;
+						cout << "--Greedy policy---" << endl;
+						int bestcmd = mc_tree->root_state->bestC(tankid,mc_tree->root_u->expensivecost[tankid],cmds);
 #if DEBUG
 						cout << "Costs [" << tankid << "]:";
-#endif
-						scored_cmds_t cmds;
-						int bestcmd = state->bestC(tankid,mc_tree->root_u->expensivecost[tankid],cmds);
-#if DEBUG
 						for (int c = 0; c < 6; c++) {
 							cout << " " << cmd2str(cmds[c].first) << ": " << cmds[c].second;
 						}
