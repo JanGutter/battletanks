@@ -19,7 +19,7 @@
 #include <limits.h>
 #include <fstream>
 
-#define ASSERT 1
+#define ASSERT 0
 #define DEBUG 0
 
 using namespace std;
@@ -72,7 +72,7 @@ bool PlayoutState::isTankInsideBounds(const int x, const int y)
 	return (x > (min_x+1) && y > (min_y+1) && x < (max_x-2) && y < (max_y-2));
 }
 
-bool PlayoutState::canRotate(const int x, const int y, const int o)
+bool PlayoutState::canRotate(const int x, const int y, const int o, board_t& obstacles)
 {
 	bool clear = true;
 	int i,x_bump,y_bump;
@@ -87,7 +87,9 @@ bool PlayoutState::canRotate(const int x, const int y, const int o)
 
 bool PlayoutState::insideTank(const unsigned int t, const int x, const int y)
 {
-	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
+//	return (tank[t].active && (abs(tank[t].x - x) < 3) && (abs(tank[t].y - y) < 3));
+	return tank[t].active && x < tank[t].x+3 && x > tank[t].x-3 &&
+			y < tank[t].y+3 && y < tank[t].y-3;
 }
 
 bool PlayoutState::insideAnyTank(const int x, const int y)
@@ -102,7 +104,8 @@ bool PlayoutState::insideAnyTank(const int x, const int y)
 
 bool PlayoutState::insideTinyTank(const int t, const int x, const int y)
 {
-	return (tank[t].active && (abs(tank[t].x - x) < 2) && (abs(tank[t].y - y) < 2));
+//	return (tank[t].active && (abs(tank[t].x - x) < 2) && (abs(tank[t].y - y) < 2));
+	return tank[t].active && x < tank[t].x+2 && x > tank[t].x+2 && y < tank[t].y+2 && y > tank[t].y-2;
 }
 
 bool PlayoutState::isTankAt(const int t, const int x, const int y)
@@ -120,7 +123,7 @@ void PlayoutState::drawTank(const int t, const int block)
 	}
 }
 
-void PlayoutState::drawTankObstacle(const int t)
+void PlayoutState::drawTankObstacle(const int t, board_t& obstacles)
 {
 	int i,j;
 	for (i = tank[t].x-2; i < tank[t].x+3; i++) {
@@ -129,6 +132,17 @@ void PlayoutState::drawTankObstacle(const int t)
 		}
 	}
 }
+
+void PlayoutState::drawTankObstacle(const int x, const int y, board_t& obstacles)
+{
+	int i,j;
+	for (i = x-2; i < x+3; i++) {
+		for (j = y-2; j < y+3; j++) {
+			obstacles[i][j] = B_OOB;
+		}
+	}
+}
+
 void PlayoutState::drawTinyTank(const int t, const int block)
 {
 	int i,j;
@@ -469,7 +483,9 @@ void PlayoutState::updateCanFire()
 	PlayoutState *tmp_state = new PlayoutState(*this);
 	int i;
 	for (i = 0; i < 4; i++) {
-		tmp_state->drawTank(i,B_EMPTY);
+		if (tank[i].active) {
+			tmp_state->drawTank(i,B_EMPTY);
+		}
 	}
 	tmp_state->drawTinyTanks();
 	tmp_state->moveBullets();
@@ -491,38 +507,33 @@ void PlayoutState::move(Move& m)
 	simulateTick();
 }
 
-double PlayoutState::playout(sfmt_t* sfmt)
+double PlayoutState::playout(sfmt_t* sfmt, UtilityScores& utility)
 {
 #if DEBUG
 	bool pickedgreedy[4];
 #endif
-	int move,tankid,c,bestcmd,bestcost,cost;
+	int move,tankid;
 	int maxmove = endgame_tick+(max_x/2)-tickno;
 	winner = W_DRAW;
+	scored_cmds_t cmds;
 	for (move = 0; move < maxmove; move++) {
+		//Expensive version
+		/*
+		updateCanFire();
+		updateSimpleUtilityScores();
+		updateExpensiveUtilityScores();*/
 		for (tankid = 0; tankid < 4; tankid++) {
 			if (sfmt_genrand_uint32(sfmt) % 100 < (EPSILON_GREEDY-1)) {
+				//EPSILON_GREEDY% of the moves are "greedy" moves.
 #if DEBUG
 				pickedgreedy[tankid] = true;
 #endif
-				//Expensive version
-				//PlayoutState tmp_state = *this;
-				//tmp_state.updateCanFire(*this);
-				//EPSILON_GREEDY% of the moves are "greedy" moves.
 				for (tankid = 0; tankid < 4; tankid++) {
 					if (tank[tankid].active) {
 						//Cheap version
 						tank[tankid].canfire = !bullet[tankid].active;
-						bestcmd = C_FIRE;
-						bestcost = INT_MAX;
-						for (c = 0; c < 6; c++) {
-							cost = cmdToSimpleUtility(c,tankid);
-							if (cost < bestcost) {
-								bestcost = cost;
-								bestcmd = c;
-							}
-						}
-						command[tankid] = bestcmd;
+						cmds.clear();
+						command[tankid] = bestC(tankid,utility.simplecost[tankid/2],cmds);
 					}
 				}
 			} else {
@@ -561,7 +572,7 @@ double PlayoutState::playout(sfmt_t* sfmt)
 	return state_score;
 }
 
-bool PlayoutState::clearFireTrajectory(int x, int y, int o, int t_x, int t_y)
+bool PlayoutState::clearFireTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles)
 {
 	//WARNING: DON'T CALL WITH OOB t_x and t_y
 	bool clear = true;
@@ -576,7 +587,7 @@ bool PlayoutState::clearFireTrajectory(int x, int y, int o, int t_x, int t_y)
 	return clear;
 }
 
-bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y)
+bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles)
 {
 	//WARNING: DON'T CALL WITH OOB t_x and t_y
 	bool clear = true;
@@ -588,7 +599,7 @@ bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_
 	return clear;
 }
 
-bool PlayoutState::clearPath(int x, int y, int o)
+bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 {
 	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
 	bool clear = true;
@@ -604,7 +615,7 @@ bool PlayoutState::clearPath(int x, int y, int o)
 	return clear;
 }
 
-bool PlayoutState::clearablePath(int x, int y, int o)
+bool PlayoutState::clearablePath(int x, int y, int o, board_t& obstacles)
 {
 	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
 	bool destructable = true;
@@ -615,7 +626,13 @@ bool PlayoutState::clearablePath(int x, int y, int o)
 	return destructable && (obstacles[x+FIRE_LOOKUP(o,O_X)][y+FIRE_LOOKUP(o,O_Y)] & B_WALL) == B_WALL;
 }
 
-void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier)
+bool PlayoutState::clearablePath(int x, int y, int o)
+{
+	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
+	return (board[x+FIRE_LOOKUP(o,O_X)][y+FIRE_LOOKUP(o,O_Y)] & B_WALL) == B_WALL;
+}
+
+void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier, board_t& obstacles)
 {
 	int i,o;
 	Tank t;
@@ -623,8 +640,8 @@ void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier)
 	for (o = 0; o < 4; o++) {
 		//The 4 dirs for the base
 		t.cost = 1;
-		t.x = base[1-player].x - 3*O_LOOKUP(o,O_X);
-		t.y = base[1-player].y - 3*O_LOOKUP(o,O_Y);
+		t.x = base[player].x - 3*O_LOOKUP(o,O_X);
+		t.y = base[player].y - 3*O_LOOKUP(o,O_Y);
 		int dx = -O_LOOKUP(o,O_X);
 		int dy = -O_LOOKUP(o,O_Y);
 		t.o = o;
@@ -645,7 +662,7 @@ void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier)
 	}
 }
 
-void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix)
+void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix, board_t& obstacles)
 {
 	Tank t,g;
 	//Flood-fill backward to determine shortest greedy path
@@ -662,7 +679,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 			t.x = g.x - O_LOOKUP(g.o,O_X);
 			t.y = g.y - O_LOOKUP(g.o,O_Y);
 			if (isTankInsideBounds(t.x,t.y)) {
-				if (clearPath(t.x,t.y,g.o)) {
+				if (clearPath(t.x,t.y,g.o,obstacles)) {
 					//Tank can move from t to g: no obstacles.
 					t.cost = g.cost+1; //Move
 					for (t.o = 0; t.o < 4; t.o++) {
@@ -671,7 +688,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 						}
 					}
 				} else {
-					if (clearablePath(t.x,t.y,g.o)) {
+					if (clearablePath(t.x,t.y,g.o,obstacles)) {
 						//Tank can move from t to g: it needs to whack the wall
 						for (t.o = 0; t.o < 4; t.o++) {
 							if (t.o == g.o) {
@@ -686,7 +703,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 					}
 				}
 			}
-			if (canRotate(g.x,g.y,g.o)) {
+			if (canRotate(g.x,g.y,g.o,obstacles)) {
 				//Tank can rotate on to g
 				t.x = g.x;
 				t.y = g.y;
@@ -701,7 +718,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 	}
 }
 
-void PlayoutState::updateSimpleUtilityScores()
+void PlayoutState::updateSimpleUtilityScores(UtilityScores& utility, board_t& obstacles)
 {
 	int i,j,player,o;
 	priority_queue<Tank> frontier;
@@ -721,8 +738,8 @@ void PlayoutState::updateSimpleUtilityScores()
 
 	for (player = 0; player < 2; player++) {
 		//Just go after the base
-		seedBase(player,frontier);
-		findPath(frontier,utility.simplecost[player]);
+		seedBase(1-player,frontier,obstacles);
+		findPath(frontier,utility.simplecost[player],obstacles);
 	}
 
 	for (o = 0; o < 4; o++) {
@@ -731,13 +748,46 @@ void PlayoutState::updateSimpleUtilityScores()
 	}
 }
 
+void PlayoutState::paintObstacles(board_t& obstacles)
+{
+	int i,j;
+	for (j = min_y; j < max_y; j++) {
+		for (i = min_x; i < max_x; i++) {
+			if ((obstacles[i][j] & (B_WALL|B_OOB)) == (B_WALL|B_OOB)) {
+				cout << "#";
+			} else {
+				if ((obstacles[i][j] & (B_WALL)) == B_WALL) {
+					cout << "=";
+				} else if ((obstacles[i][j] & (B_OOB)) == B_OOB) {
+					cout << "+";
+				} else {
+					cout << " ";
+				}
+			}
+		}
+		cout << endl;
+	}
+}
 
-void PlayoutState::updateExpensiveUtilityScores()
+bool PlayoutState::lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty)
+{
+	switch (o) {
+	default:
+	case O_UP:
+		return (sx == tx) && (ty < sy);
+	case O_DOWN:
+		return (sx == tx) && (ty > sy);
+	case O_LEFT:
+		return (sy == ty) && (tx < sx);
+	case O_RIGHT:
+		return (sy == ty) && (tx > sx);
+	}
+}
+
+void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles)
 {
 	int o,i,j,tankid,comradeid,traveldistance[4];
-	Tank t,g;
-	int player;
-	int targetx,targety,deltax,deltay;
+	int targetx,targety,deltax,deltay,playerid;
 	priority_queue<Tank> frontier;
 
 	for (tankid = 0; tankid < 4; tankid++) {
@@ -749,81 +799,101 @@ void PlayoutState::updateExpensiveUtilityScores()
 			}
 		}
 	}
-
-	for (tankid = 0; tankid < 4; tankid++) {
-		//Each tank has a different set of obstacles
-		memcpy(obstacles,board,sizeof(obstacles));
-		comradeid = tankid^1;
-		player = tankid/2;
-		//Friendly tank counts as immovable obstacle
-		if (tank[comradeid].active) {
-			drawTankObstacle(comradeid);
-		}
-		//Path of bullets count as immovable obstacle
-		//Firing sights of tanks count as immovable obstacle
-		for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
-			if (bullet[j].active) {
-				targetx = bullet[j].x;
-				targety = bullet[j].y;
-				deltax = O_LOOKUP(bullet[j].o,O_X);
-				deltay = O_LOOKUP(bullet[j].o,O_Y);
-			} else if (tank[j].active) {
-				targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
-				targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
-				deltax = O_LOOKUP(tank[j].o,O_X);
-				deltay = O_LOOKUP(tank[j].o,O_Y);
-			} else {
-				continue;
-			}
-			for (i = 0; i < 10; i++) {
-				if (isTankInsideBounds(targetx,targety)
-						&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0) {
-					obstacles[targetx][targety] = B_OOB;
-					targetx += deltax;
-					targety += deltay;
-				} else {
-					break;
+	for (playerid = 0; playerid < 2; playerid++) {
+		for (tankid = (playerid*2); tankid < (playerid*2+2); tankid++) {
+			//Each tank has a different set of obstacles
+			memcpy(obstacles,board,sizeof(obstacles));
+			comradeid = tankid^1;
+			//Friendly tank counts as immovable obstacle
+			if (tank[comradeid].active) {
+				drawTankObstacle(comradeid,obstacles);
+				if (tankid & 1) {
+					targetx = tank[comradeid].x;
+					targety = tank[comradeid].y;
+					for (i = 0; i < max_y; i++) {
+						//Bail out at 80+ moves ahead.
+						scored_cmds_t cmds;
+						o = bestO(targetx,targety,utility.expensivecost[comradeid],cmds);
+						targetx += O_LOOKUP(o,O_X);
+						targety += O_LOOKUP(o,O_Y);
+						drawTankObstacle(targetx,targety,obstacles);
+						if (lineOfSight(targetx,targety,o,base[1-playerid].x,base[1-playerid].y)) {
+							break;
+						}
+					}
 				}
 			}
-			traveldistance[j] = i;
-		}
-
-		seedBase(player,frontier);
-		findPath(frontier,utility.expensivecost[tankid]);
-
-		if (!bullet[tankid].active) {
-			//Put down breadcrumbs to turn and fire for active defence
-			for (j = (1-player)*2; j < ((1-player)*2 + 2); j++) {
+			//Path of bullets count as immovable obstacle
+			//Firing sights of tanks count as immovable obstacle
+			for (j = 2; j < 4; j++) {
 				if (bullet[j].active) {
 					targetx = bullet[j].x;
 					targety = bullet[j].y;
 					deltax = O_LOOKUP(bullet[j].o,O_X);
 					deltay = O_LOOKUP(bullet[j].o,O_Y);
-					o = bullet[j].o;
 				} else if (tank[j].active) {
 					targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
 					targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
 					deltax = O_LOOKUP(tank[j].o,O_X);
 					deltay = O_LOOKUP(tank[j].o,O_Y);
-					o = tank[j].o;
 				} else {
 					continue;
 				}
-				for (i = 0; i < traveldistance[j]+12; i++) {
+				for (i = 0; i < 10; i++) {
 					if (isTankInsideBounds(targetx,targety)
-							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
-						utility.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = (i/2)+1;
+							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0) {
+						obstacles[targetx][targety] = B_OOB;
 						targetx += deltax;
 						targety += deltay;
 					} else {
 						break;
 					}
 				}
+				traveldistance[j] = i;
 			}
-		}
 
-		for (o = 0; o < 4; o++) {
-			utility.expensivecost[tankid][base[1-player].x][base[1-player].y][o] = 0;
+			seedBase(1-playerid,frontier,obstacles);
+#if 0
+			cout << "Obstacles for tank " << tankid << endl;
+			cout << "=======================" << endl;
+			paintObstacles();
+#endif
+			findPath(frontier,utility.expensivecost[tankid],obstacles);
+
+			if (tank[tankid].canfire) {
+				//Put down breadcrumbs to turn and fire for active defence
+				for (j = 2; j < 4; j++) {
+					if (bullet[j].active) {
+						targetx = bullet[j].x;
+						targety = bullet[j].y;
+						deltax = O_LOOKUP(bullet[j].o,O_X);
+						deltay = O_LOOKUP(bullet[j].o,O_Y);
+						o = bullet[j].o;
+					} else if (tank[j].active) {
+						targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
+						targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
+						deltax = O_LOOKUP(tank[j].o,O_X);
+						deltay = O_LOOKUP(tank[j].o,O_Y);
+						o = tank[j].o;
+					} else {
+						continue;
+					}
+					for (i = 0; i < traveldistance[j]+12; i++) {
+						if (isTankInsideBounds(targetx,targety)
+								&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
+							utility.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = (i/2)+1;
+							targetx += deltax;
+							targety += deltay;
+						} else {
+							break;
+						}
+					}
+				}
+			}
+
+			for (o = 0; o < 4; o++) {
+				utility.expensivecost[tankid][base[1-playerid].x][base[1-playerid].y][o] = 0;
+			}
 		}
 	}
 	//The 4 dirs for each enemy tank
@@ -870,6 +940,71 @@ bool PlayoutState::incomingBullet(const int x, const int y, const int o)
 	return incoming;
 }
 
+int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cmds)
+{
+	scored_cmd_t cmd;
+	int i;
+	int wallcount;
+	int hitcost;
+	int x,y;
+	int player = tank_id/2;
+	TankState& t = tank[tank_id];
+	TankState& comrade = tank[tank_id^1];
+	BaseState& enemybase = base[1-player];
+	int playerid = tank_id/2;
+	int friendly_tanks = t.active+comrade.active;
+	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
+
+	int besto = bestO(t.x,t.y,costmatrix,cmds);
+
+	cmd.first = C_NONE;
+	cmd.second = costmatrix[t.x][t.y][t.o];
+	//One tank goes limp
+	if (enemy_tanks == 0 && friendly_tanks == 2) {
+		int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
+		int comrade_cost = abs(comrade.x-enemybase.x)+abs(comrade.y-enemybase.y);
+		if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
+			cmd.second = costmatrix[t.x][t.y][t.o]-2;
+		}
+	}
+	cmds.push_back(cmd);
+
+	cmd.first = C_FIRE;
+	if (!t.canfire) {
+		cmd.second = INT_MAX;
+	} else {
+		x = t.x + FIRE_LOOKUP(t.o,O_X);
+		y = t.y + FIRE_LOOKUP(t.o,O_Y);
+		wallcount = 0;
+		i = 0;
+
+		while (insideBounds(x,y) && !onTarget(player,x,y)) {
+			if (wallcount == 0 && incomingBullet(x,y,t.o)) {
+				return 0; //Bullet heading this way, FIRE!
+			}
+			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
+			i++;
+			x += O_LOOKUP(t.o,O_X);
+			y += O_LOOKUP(t.o,O_Y);
+		}
+		hitcost = INT_MAX-1;
+		if (onTarget(player,x,y)) {
+			//HIT!
+			hitcost = ((i/2)+wallcount+1);
+		}
+		if ((t.o == besto) && clearablePath(t.x,t.y,t.o) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y))) {
+			//Shoot to clear a space to move in
+			cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
+		} else {
+			//Just shoot
+			cmd.second = hitcost;
+		}
+	}
+	cmds.push_back(cmd);
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
+}
+#if 0
 int PlayoutState::cmdToSimpleUtility(int c, int tank_id)
 {
 	int i;
@@ -1014,57 +1149,22 @@ int PlayoutState::cmdToExpensiveUtility(int c, int tank_id)
 		return INT_MAX;
 	}
 }
+#endif
 
-void PlayoutState::save()
+int PlayoutState::bestO(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds)
 {
-	ofstream outfile("simplecost.p0.down");
-	int o = O_DOWN;
-	int i,j;
-	int maxcost = 0;
-	for (i = min_x; i < max_x; i++) {
-		for (j = min_y; j < max_y; j++) {
-			if (utility.simplecost[0][i][j][o] != INT_MAX) {
-				maxcost = max(maxcost,utility.simplecost[0][i][j][o]);
-			}
-		}
+	scored_cmd_t o_score;
+	int o;
+	for (o = 0; o < 4; o++) {
+		o_score.first = o;
+		o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
+		cmds.push_back(o_score);
 	}
-	for (j = min_y; j < max_y; j++) {
-		for (i = min_x; i < max_x; i++) {
-			if (utility.simplecost[0][i][j][o] != INT_MAX) {
-				outfile << utility.simplecost[0][i][j][o]<<" ";
-			} else {
-				outfile << maxcost <<" ";
-			}
-		}
-		outfile << endl;
-	}
-	outfile.close();
-	outfile.open("expensivecost.t0.down");
-	o = O_DOWN;
-	maxcost = 0;
-	for (i = min_x; i < max_x; i++) {
-		for (j = min_y; j < max_y; j++) {
-			if (utility.expensivecost[0][i][j][o] != INT_MAX) {
-				maxcost = max(maxcost,utility.simplecost[0][i][j][o]);
-			}
-		}
-	}
-	for (j = min_y; j < max_y; j++) {
-		for (i = min_x; i < max_x; i++) {
-			if (utility.expensivecost[0][i][j][o] != INT_MAX) {
-				outfile << utility.simplecost[0][i][j][o]<<" ";
-			} else {
-				outfile << maxcost <<" ";
-			}
-		}
-		outfile << endl;
-	}
-	outfile.close();
-
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
 }
 
-
-void PlayoutState::paintUtilityScores()
+void PlayoutState::paintUtilityScores(UtilityScores& utility)
 {
 	int o,x,y,besto,bestscore,score,bestcount;
 	unsigned char direction[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
@@ -1155,6 +1255,7 @@ void PlayoutState::paintUtilityScores()
 
 void PlayoutState::paint()
 {
+	unsigned char canvas[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
 	int i,j;
 	cout << "-=-=- tick: " << tickno << endl;
 	cout << "base[0] x:" << setw(3) << base[0].x << " y:" << setw(3) << base[0].y << endl;
@@ -1175,18 +1276,29 @@ void PlayoutState::paint()
 	for (j = min_y; j < max_y; j++) {
 		for (i = min_x; i < max_x; i++) {
 			if (board[i][j] == B_EMPTY) {
-				cout << " ";
+				canvas[i][j] = ' ';
 			} else if (board[i][j] == B_WALL) {
-				cout << "#";
+				canvas[i][j] = '#';
 			} else if (board[i][j] == B_BASE) {
-				cout << "&";
+				canvas[i][j] = '&';
 			}else if (board[i][j] == B_TANK) {
-				cout << "@";
+
+				canvas[i][j] = '@';
 			} else if (board[i][j] & B_BULLET) {
-				cout << "*";
+				canvas[i][j] = '*';
 			} else {
-				cout << "?";
+				canvas[i][j] = '?';
 			}
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		if (tank[i].active) {
+			canvas[tank[i].x+2*O_LOOKUP(tank[i].o,O_X)][tank[i].y+2*O_LOOKUP(tank[i].o,O_Y)] = '+';
+		}
+	}
+	for (j = min_y; j < max_y; j++) {
+		for (i = min_x; i < max_x; i++) {
+			cout << canvas[i][j];
 		}
 		cout << endl;
 	}

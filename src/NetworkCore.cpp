@@ -585,9 +585,6 @@ void NetworkCore::play()
 #endif
 			} //if events
 
-			state->updateCanFire();
-			state->updateSimpleUtilityScores();
-			state->updateExpensiveUtilityScores();
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
 				mc_tree->init(state);
@@ -698,26 +695,18 @@ void NetworkCore::play()
 #if DEBUG
 						cout << "Costs [" << tankid << "]:";
 #endif
-						int bestcmd = C_FIRE;
-						int bestcost = INT_MAX;
-						int cost;
-						for (int c = 0; c < 6; c++) {
-							cost = state->cmdToExpensiveUtility(c,tankid);
+						scored_cmds_t cmds;
+						int bestcmd = state->bestC(tankid,mc_tree->root_u->expensivecost[tankid],cmds);
 #if DEBUG
-							cout << " " << cmd2str(c) << ": " << cost;
-#endif
-							if (cost < bestcost) {
-								bestcost = cost;
-								bestcmd = c;
-							}
+						for (int c = 0; c < 6; c++) {
+							cout << " " << cmd2str(cmds[c].first) << ": " << cmds[c].second;
 						}
+						cout << endl;
+#endif
 						action[tankid] = hton_cmd(bestcmd);
 						if (tankid < 2) {
 							greedycmd[tankid] = bestcmd;
 						}
-#if DEBUG
-						cout << endl;
-#endif
 					}
 				}
 #if HALFLIMP

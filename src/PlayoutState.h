@@ -49,24 +49,27 @@ struct Tank {
 	int x,y,o,cost;
 };
 
+typedef pair<int,int> scored_cmd_t;
+typedef vector<scored_cmd_t> scored_cmds_t;
+
 inline bool operator<(const Tank& a,const Tank& b)
 //The priority is HIGHER if the cost is LOWER
 {
   return a.cost > b.cost;
 }
 
+typedef unsigned char board_t[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+
 //POD structure
 class PlayoutState {
 public:
-	UtilityScores utility;
 	int tickno;
 	int command[4]; //commands given to the tanks (index is the same as tank[4])
 	int tank_priority[4]; //order in which tanks should be moved
 	TankState tank[4]; //Tank 0-1 belongs to PLAYER0, Tank 2-3 belongs to PLAYER1
 	BulletState bullet[4]; //(index is the same as tank[4])
 	BaseState base[2]; //Base 0 belongs to PLAYER0, Base 1 belongs to PLAYER1
-	unsigned char board[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
-	unsigned char obstacles[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+	board_t board;
 	int min_x,min_y;
 	int max_x,max_y;
 	bool gameover;
@@ -85,14 +88,15 @@ public:
 	void checkDestroyedBullets();
 	void move(Move& m);
 	void simulateTick();
-	double playout(sfmt_t* sfmt);
+	double playout(sfmt_t* sfmt, UtilityScores& utility);
 	void updateCanFire();
 	bool insideBounds(const int x, const int y);
 	bool isTankInsideBounds(const int x, const int y);
-	bool canRotate(const int x, const int y, const int o);
-	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y);
-	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y);
-	bool clearPath(int x, int y, int o);
+	bool canRotate(const int x, const int y, const int o, board_t& obstacles);
+	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
+	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
+	bool clearPath(int x, int y, int o, board_t& obstacles);
+	bool clearablePath(int x, int y, int o, board_t& obstacles);
 	bool clearablePath(int x, int y, int o);
 	bool insideTank(const unsigned int t, const int x, const int y);
 	bool insideAnyTank(const int x, const int y);
@@ -102,19 +106,24 @@ public:
 	bool incomingBullet(const int x, const int y, const int o);
 	bool isTankAt(const int t, const int x, const int y);
 	void drawTank(const int t, const int block);
-	void drawTankObstacle(const int t);
+	void drawTankObstacle(const int t, board_t& obstacles);
+	void drawTankObstacle(const int x, const int y, board_t& obstacles);
 	void drawTinyTank(const int t, const int block);
-	void seedBase(const int player, priority_queue<Tank>& frontier);
-	void findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix);
-	void updateSimpleUtilityScores();
-	void updateExpensiveUtilityScores();
+	void seedBase(const int player, priority_queue<Tank>& frontier, board_t& obstacles);
+	void findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix, board_t& obstacles);
+	void updateSimpleUtilityScores(UtilityScores& utility, board_t& obstacles);
+	void updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles);
+	bool lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty);
 	void save();
-	int cmdToSimpleUtility(int c, int t);
-	int cmdToExpensiveUtility(int c, int t);
+	int bestO(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	//int cmdToSimpleUtility(int c, int t);
+	int bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	//int cmdToExpensiveUtility(int c, int t);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);
-	void paintUtilityScores();
+	void paintUtilityScores(UtilityScores& utility);
 	void paint();
+	void paintObstacles(board_t& obstacles);
 };
 
 ostream &operator<<(ostream &output, const PlayoutState &p);

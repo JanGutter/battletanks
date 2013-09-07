@@ -231,7 +231,7 @@ inline void MCTree::handle_task(int taskid, int threadid) {
 			tree[task->child_ptr].terminal = true;
 		} else {
 			tree[task->child_ptr].terminal = false;
-			child_state[threadid]->playout(worker_sfmt[threadid]);
+			child_state[threadid]->playout(worker_sfmt[threadid],*root_u);
 		}
 		tree[task->child_ptr].expanded_to = 0;
 		tree[task->child_ptr].r.init();
@@ -363,7 +363,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState*
 		} else {
 			for (i = 0; i < (tree_size_t)width; i++) {
 				memcpy(child_state[0],node_state,sizeof(PlayoutState));
-				results.push_back(child_state[0]->playout(worker_sfmt[0]));
+				results.push_back(child_state[0]->playout(worker_sfmt[0],*root_u));
 			}
 		}
 		//cerr << "Ran out of tree!" << endl;
@@ -377,51 +377,18 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState*
 		memset(&tree[node_id].child,0,sizeof(tree[node_id].child));
 		//Calculate the move order.
 		//node_state.populateUtilityScores(u);
-		pair<int,int> cmd_and_utility;
-		vector< pair<int,int> > cmd_and_utilities(4);
+		scored_cmds_t cmds;
 		for (i = 0; i < 4; i++) {
 			if (node_state->tank[i].active) {
 				//Get the cost of the moves
-				for (j = 0; j < 4; j++) {
-					cmd_and_utility.first = j+C_UP;
-					if (node_id == root_id) {
-						cmd_and_utility.second = node_state->cmdToExpensiveUtility(j+C_UP,i);
-					} else {
-						cmd_and_utility.second = node_state->cmdToSimpleUtility(j+C_UP,i);
-					}
-					cmd_and_utilities[j] = cmd_and_utility;
-				}
-
-				sort(cmd_and_utilities.begin(), cmd_and_utilities.end(), sort_pair_second<int, int>());
-				if (node_state->tank[i].canfire) {
-					int fire_utility;
-					if (node_id == root_id) {
-						fire_utility = node_state->cmdToExpensiveUtility(C_FIRE,i);
-					} else {
-						fire_utility = node_state->cmdToSimpleUtility(C_FIRE,i);
-					}
-					if (cmd_and_utilities[0].second < fire_utility) {
-						//Move then fire
-						tree[node_id].cmd_order[i][0] = (unsigned char) cmd_and_utilities[0].first;
-						tree[node_id].cmd_order[i][1] = (unsigned char) C_FIRE;
-					} else {
-						//Fire then move
-						tree[node_id].cmd_order[i][0] = (unsigned char) C_FIRE;
-						tree[node_id].cmd_order[i][1] = (unsigned char) cmd_and_utilities[0].first;
-					}
-					for (j = 1; j < 4; j++) {
-						tree[node_id].cmd_order[i][j+1] = (unsigned char) cmd_and_utilities[j].first;
-					}
-					//Do nothing only at last resort
-					tree[node_id].cmd_order[i][5] = C_NONE;
+				if (node_id == root_id) {
+					node_state->bestC(i,root_u->expensivecost[i],cmds);
 				} else {
-					for (j = 0; j < 4; j++) {
-						tree[node_id].cmd_order[i][j] = (unsigned char) cmd_and_utilities[j].first;
-					}
-					tree[node_id].cmd_order[i][4] = C_NONE;
-					tree[node_id].cmd_order[i][5] = C_FIRE;
+					node_state->bestC(i,root_u->simplecost[i/2],cmds);
 				}
-
+				for (j = 0;j < 6; j++) {
+					tree[node_id].cmd_order[i][j] = (unsigned char) cmds[j].first;
+				}
 			} else {
 				for (j = 0; j < 6; j++) {
 					tree[node_id].cmd_order[i][j] = j;
@@ -730,9 +697,12 @@ void MCTree::init(PlayoutState* reference_state)
 	root_state->drawBases();
 	root_state->drawTanks();
 	root_state->drawBullets();
+	root_state->updateCanFire();
+	root_state->updateSimpleUtilityScores(*root_u,root_obstacles);
+	root_state->updateExpensiveUtilityScores(*root_u,root_obstacles);
 	memcpy(child_state[0],root_state,sizeof(PlayoutState));
 	tree[root_id].r.init();
-	tree[root_id].r.push(child_state[0]->playout(worker_sfmt[0]));
+	tree[root_id].r.push(child_state[0]->playout(worker_sfmt[0],*root_u));
 	tree[root_id].terminal = false;
 	zero.alpha = 0;
 	zero.beta = 0;
@@ -768,9 +738,12 @@ void MCTree::reset(PlayoutState* reference_state)
 	root_state->drawBases();
 	root_state->drawTanks();
 	root_state->drawBullets();
+	root_state->updateCanFire();
+	root_state->updateSimpleUtilityScores(*root_u,root_obstacles);
+	root_state->updateExpensiveUtilityScores(*root_u,root_obstacles);
 	memcpy(child_state[0],root_state,sizeof(PlayoutState));
 	tree[root_id].r.init();
-	tree[root_id].r.push(child_state[0]->playout(worker_sfmt[0]));
+	tree[root_id].r.push(child_state[0]->playout(worker_sfmt[0],*root_u));
 	tree[root_id].terminal = false;
 	zero.alpha = 0;
 	zero.beta = 0;
@@ -800,6 +773,7 @@ MCTree::MCTree()
 	}
 	memset(allocated_count,0,sizeof(allocated_count));
 	root_state = new PlayoutState;
+	root_u = new UtilityScores;
 	root_id = 1;
 	allocated_to_root.push_back(root_id);
 	num_workers = min(tthread::thread::hardware_concurrency(),MAXTHREADS);
@@ -851,4 +825,5 @@ MCTree::~MCTree()
 	}
 	delete[] tree;
 	delete root_state;
+	delete root_u;
 }

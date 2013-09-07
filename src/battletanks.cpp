@@ -29,6 +29,7 @@ using namespace std;
 #define MODE_SOAP 1
 #define MODE_BENCHMARK 2
 #define MODE_SELFPLAY 3
+#define MODE_SHOWPATH 4
 
 int main(int argc, char** argv) {
 	int mode = MODE_SOAP;
@@ -50,7 +51,9 @@ int main(int argc, char** argv) {
 		if (strcmp(argv[1],"selfplay") == 0) {
 			mode = MODE_SELFPLAY;
 		}
-
+		if (strcmp(argv[1],"showpath") == 0) {
+			mode = MODE_SHOWPATH;
+		}
 	}
 	if (mode == MODE_SOAP) {
 		cout << "Network Play using SOAP: [" << soap_endpoint << "]" << endl;
@@ -79,6 +82,7 @@ int main(int argc, char** argv) {
 		utility_stat.init();
 		backprop_stat.init();
 		expand_stat.init();
+		board_t obstacles;
 #endif
 		overall_timer.restart();
 		tree_size_t node_id;
@@ -92,16 +96,16 @@ int main(int argc, char** argv) {
 		node_state->stop_playout = false;
 		fin.close();
 #if BENCHMARK
+		UtilityScores* u = new UtilityScores;
 		cout << "Populating utility scores..." << endl;
 		utility_timer.restart();
-#endif
 		node_state->updateCanFire();
-		node_state->updateSimpleUtilityScores();
-		node_state->updateExpensiveUtilityScores();
-#if BENCHMARK
+		node_state->updateSimpleUtilityScores(*u,obstacles);
+		node_state->updateExpensiveUtilityScores(*u,obstacles);
 		utility_timer.stop();
 		utility_stat.push((double)utility_timer.get_milliseconds());
 		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
+		delete u;
 #endif
 		mc_tree->init(node_state);
 		//cout << mc_tree->root_state;
@@ -158,6 +162,7 @@ int main(int argc, char** argv) {
 			looptime += overall_timer.get_microseconds();
 			overall_timer.restart();
 
+
 		}
 #if BENCHMARK
 		cout << "Select mean: " << select_stat.mean() << " ms count: " << select_stat.count() << endl;
@@ -191,16 +196,11 @@ int main(int argc, char** argv) {
 		fin.close();
 		StatCounter playouts;
 		playouts.init();
-		node_state->drawBases();
-		node_state->drawBullets();
-		node_state->drawTanks();
-		node_state->updateCanFire();
-		node_state->updateSimpleUtilityScores();
-		node_state->updateExpensiveUtilityScores();
-		node_state->paintUtilityScores();
-		for (i = 0; i < 1; i++) {
-			*tmp_state = *node_state;
-			double result = tmp_state->playout(mc_tree->worker_sfmt[0]);
+		mc_tree->init(node_state);
+		mc_tree->root_state->paintUtilityScores(*mc_tree->root_u);
+		for (i = 0; i < 50000; i++) {
+			memcpy(tmp_state,mc_tree->root_state,sizeof(PlayoutState));
+			double result = tmp_state->playout(mc_tree->worker_sfmt[0],*mc_tree->root_u);
 			playouts.push(result);
 			//cout << result << endl;
 		}
@@ -208,7 +208,27 @@ int main(int argc, char** argv) {
 		delete node_state;
 		delete tmp_state;
 		delete mc_tree;
+	} else if (mode == MODE_SHOWPATH) {
+		MCTree* mc_tree = new MCTree;
+		PlayoutState* node_state = new PlayoutState;
+		vector<Move> path;
+		ifstream fin("board1.map");
+		fin >> *node_state;
+		node_state->endgame_tick = 200;
+		node_state->gameover = false;
+		node_state->stop_playout = false;
+		fin.close();
+		StatCounter playouts;
+		playouts.init();
+		mc_tree->init(node_state);
+		mc_tree->root_state->paintUtilityScores(*mc_tree->root_u);
+		double result = mc_tree->root_state->playout(mc_tree->worker_sfmt[0],*mc_tree->root_u);
+		playouts.push(result);
+		//cout << result << endl;
+		delete node_state;
+		delete mc_tree;
 	}
+
 
 	cerr << "Done!" << endl;
 	return 0;
