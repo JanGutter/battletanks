@@ -52,7 +52,6 @@ int main(int argc, char** argv) {
 		}
 
 	}
-	MCTree *mc_tree = new MCTree;
 	if (mode == MODE_SOAP) {
 		cout << "Network Play using SOAP: [" << soap_endpoint << "]" << endl;
 		NetworkCore* netcore = new NetworkCore(soap_endpoint);
@@ -61,6 +60,9 @@ int main(int argc, char** argv) {
 		netcore->play();
 		delete netcore;
 	} else if (mode == MODE_BENCHMARK) {
+		MCTree *mc_tree = new MCTree;
+		PlayoutState* node_state = new PlayoutState;
+		vector<Move> path;
 		int i,width;
 		uint32_t linear;
 		platformstl::performance_counter overall_timer;
@@ -79,40 +81,36 @@ int main(int argc, char** argv) {
 		expand_stat.init();
 #endif
 		overall_timer.restart();
-		UtilityScores* u = new UtilityScores;
 		tree_size_t node_id;
-		PlayoutState node_state;
-		PlayoutState tmp_state;
-		vector<Move> path;
 		vector<double> results;
 		int64_t looptime = 0;
 
 		ifstream fin("board1.map");
-		fin >> node_state;
-		node_state.endgame_tick = 200;
-		node_state.gameover = false;
-		node_state.stop_playout = false;
+		fin >> *node_state;
+		node_state->endgame_tick = 200;
+		node_state->gameover = false;
+		node_state->stop_playout = false;
 		fin.close();
 #if BENCHMARK
 		cout << "Populating utility scores..." << endl;
 		utility_timer.restart();
 #endif
-		tmp_state = node_state;
-		tmp_state.updateCanFire(node_state);
-		node_state.populateUtilityScores(*u);
+		node_state->updateCanFire();
+		node_state->updateSimpleUtilityScores();
+		node_state->updateExpensiveUtilityScores();
 #if BENCHMARK
 		utility_timer.stop();
 		utility_stat.push((double)utility_timer.get_milliseconds());
 		cout << "Utility scores populated! [" << utility_timer.get_milliseconds() << " ms]"<<endl;
 #endif
-		mc_tree->init(node_state,*u);
+		mc_tree->init(node_state);
 		//cout << mc_tree->root_state;
 
 		overall_timer.stop();
 		looptime += overall_timer.get_microseconds();
 		overall_timer.restart();
 		for (i = 0; i < 10 || looptime < 2000000; i++) {
-			linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
+			linear = sfmt_genrand_uint32(mc_tree->worker_sfmt[0]) % 10000;
 			if (linear > 8500) {
 				width = 2;
 			} else if (linear > 100) {
@@ -125,7 +123,7 @@ int main(int argc, char** argv) {
 			//cout << "width: " << width << endl;
 			path.clear();
 			results.clear();
-			node_state = mc_tree->root_state;
+			memcpy(node_state,mc_tree->root_state,sizeof(PlayoutState));
 			node_id = mc_tree->root_id;
 #if BENCHMARK
 			select_timer.restart();
@@ -144,7 +142,7 @@ int main(int argc, char** argv) {
 			 */
 			expand_timer.restart();
 #endif
-			mc_tree->expand_some(width,node_id,node_state,*u,path,results);
+			mc_tree->expand_some(width,node_id,node_state,path,results);
 #if BENCHMARK
 			expand_timer.stop();
 			expand_stat.push((double)expand_timer.get_milliseconds());
@@ -177,38 +175,41 @@ int main(int argc, char** argv) {
 		cout << "Root " << mc_tree->tree[mc_tree->root_id].r.mean() << "/" << mc_tree->tree[mc_tree->root_id].r.variance() << "/" << mc_tree->tree[mc_tree->root_id].r.count() << endl;
 
 		mc_tree->tree[mc_tree->root_id].print(*mc_tree);
-		delete u;
+		delete node_state;
+		delete mc_tree;
 	} else if (mode == MODE_SELFPLAY) {
+		MCTree* mc_tree = new MCTree;
+		PlayoutState* node_state = new PlayoutState;
+		PlayoutState* tmp_state = new PlayoutState;
+		vector<Move> path;
 		int i;
-		UtilityScores* u = new UtilityScores;
-		PlayoutState node_state;
-		PlayoutState tmp_state;
 		ifstream fin("board1.map");
-		fin >> node_state;
-		node_state.endgame_tick = 200;
-		node_state.gameover = false;
-		node_state.stop_playout = false;
+		fin >> *node_state;
+		node_state->endgame_tick = 200;
+		node_state->gameover = false;
+		node_state->stop_playout = false;
 		fin.close();
 		StatCounter playouts;
 		playouts.init();
-		node_state.drawBases();
-		node_state.drawBullets();
-		node_state.drawTanks();
-		tmp_state = node_state;
-		tmp_state.updateCanFire(node_state);
-		node_state.populateUtilityScores(*u);
-		node_state.paint(*u);
+		node_state->drawBases();
+		node_state->drawBullets();
+		node_state->drawTanks();
+		node_state->updateCanFire();
+		node_state->updateSimpleUtilityScores();
+		node_state->updateExpensiveUtilityScores();
+		node_state->paintUtilityScores();
 		for (i = 0; i < 1; i++) {
-			tmp_state = node_state;
-			double result = tmp_state.playout(mc_tree->worker_sfmt[0],*u);
+			*tmp_state = *node_state;
+			double result = tmp_state->playout(mc_tree->worker_sfmt[0]);
 			playouts.push(result);
-			cout << result << endl;
+			//cout << result << endl;
 		}
 		cerr << "Mean: " << playouts.mean() << " variance: " << playouts.variance() << endl;
-		delete u;
+		delete node_state;
+		delete tmp_state;
+		delete mc_tree;
 	}
 
-	delete mc_tree;
 	cerr << "Done!" << endl;
 	return 0;
 }

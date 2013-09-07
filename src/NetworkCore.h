@@ -26,9 +26,7 @@ using namespace std;
 
 class NetworkCore {
 private:
-	PlayoutState state;
-	PlayoutState tmp_state;
-	UtilityScores u;
+	PlayoutState* state;
 	ChallengeServiceSoapBindingProxy s;
 	string myname;
 	bool state_synced;
@@ -38,6 +36,7 @@ public:
 	NetworkCore(const char* soap_endpoint);
 	void login();
 	void play();
+	~NetworkCore();
 };
 
 extern void network_play(const char* soap_endpoint);

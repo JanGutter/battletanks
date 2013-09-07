@@ -11,6 +11,7 @@
 #include <iostream>
 #include "consts.h"
 #include <SFMT.h>
+#include <queue>
 using namespace std;
 
 struct TankState {
@@ -57,6 +58,7 @@ inline bool operator<(const Tank& a,const Tank& b)
 //POD structure
 class PlayoutState {
 public:
+	UtilityScores utility;
 	int tickno;
 	int command[4]; //commands given to the tanks (index is the same as tank[4])
 	int tank_priority[4]; //order in which tanks should be moved
@@ -83,8 +85,8 @@ public:
 	void checkDestroyedBullets();
 	void move(Move& m);
 	void simulateTick();
-	double playout(sfmt_t& sfmt, UtilityScores& u);
-	void updateCanFire(PlayoutState& p);
+	double playout(sfmt_t* sfmt);
+	void updateCanFire();
 	bool insideBounds(const int x, const int y);
 	bool isTankInsideBounds(const int x, const int y);
 	bool canRotate(const int x, const int y, const int o);
@@ -102,13 +104,16 @@ public:
 	void drawTank(const int t, const int block);
 	void drawTankObstacle(const int t);
 	void drawTinyTank(const int t, const int block);
-	void populateUtilityScores(UtilityScores &u);
-	void save(UtilityScores& u);
-	int cmdToSimpleUtility(int c, int t, UtilityScores &u);
-	int cmdToExpensiveUtility(int c, int t, UtilityScores &u);
+	void seedBase(const int player, priority_queue<Tank>& frontier);
+	void findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix);
+	void updateSimpleUtilityScores();
+	void updateExpensiveUtilityScores();
+	void save();
+	int cmdToSimpleUtility(int c, int t);
+	int cmdToExpensiveUtility(int c, int t);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);
-	void paint(UtilityScores& u);
+	void paintUtilityScores();
 	void paint();
 };
 

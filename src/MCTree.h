@@ -52,8 +52,7 @@ struct expand_result_t {
 
 class MCTree {
 public:
-	PlayoutState root_state;
-	UtilityScores root_u;
+	PlayoutState *root_state;
 	tree_size_t root_id;
 	tree_size_t tree_size;
 	Node* tree;
@@ -78,8 +77,8 @@ public:
 	unsigned int task_result_first;
 	unsigned int task_result_last;
 
-	vector<PlayoutState> child_state;
-	vector<sfmt_t> worker_sfmt;
+	vector<PlayoutState*> child_state;
+	vector<sfmt_t*> worker_sfmt;
 	tthread::thread* expand_worker[MAXTHREADS];
 
 	list <tree_size_t> unallocated;
@@ -92,13 +91,13 @@ public:
 	void handle_task(int taskid, int threadid);
 	void post_result(int alpha, int beta);
 	bool taskqueue_empty();
-	void init(PlayoutState& reference_state,UtilityScores& reference_u);
-	void reset(PlayoutState& reference_state,UtilityScores& reference_u);
-	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState& node_state);
+	void init(PlayoutState* reference_state);
+	void reset(PlayoutState* reference_state);
+	void select(unsigned char width,vector<Move>& path, tree_size_t& node_id, PlayoutState* node_state);
 	void redistribute(vector<Move>& path);
 	void backprop(vector<Move>& path, vector<double>& result);
-	void expand_all(tree_size_t node_id, PlayoutState& node_state, UtilityScores& u, vector<Move>& path, vector<double>& results);
-	void expand_some(unsigned char width, tree_size_t node_id, PlayoutState& node_state, UtilityScores& u, vector<Move>& path, vector<double>& results);
+	void expand_all(tree_size_t node_id, PlayoutState* node_state, vector<Move>& path, vector<double>& results);
+	void expand_some(unsigned char width, tree_size_t node_id, PlayoutState* node_state, vector<Move>& path, vector<double>& results);
 	MCTree();
 	virtual ~MCTree();
 };

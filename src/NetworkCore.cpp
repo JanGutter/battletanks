@@ -102,38 +102,44 @@ inline int ntoh_direction(enum ns1__direction *direction) {
 NetworkCore::NetworkCore(const char* soap_endpoint)
 {
 	int i;
+	state = new PlayoutState;
 	state_synced = false;
 	soaperr = SOAP_OK;
 	s.soap_endpoint = soap_endpoint;
-	state.max_x = 0;
-	state.max_y = 0;
-	state.tickno = 0;
+	state->max_x = 0;
+	state->max_y = 0;
+	state->tickno = 0;
 	for (i = 0; i < 4;i++) {
-		state.tank[i].active = 0;
-		state.tank[i].id = INT_MAX;
-		state.bullet[i].active = 0;
-		state.bullet[i].id = INT_MAX;
+		state->tank[i].active = 0;
+		state->tank[i].id = INT_MAX;
+		state->bullet[i].active = 0;
+		state->bullet[i].id = INT_MAX;
 	}
 	policy = POLICY_RANDOM;
+}
+
+NetworkCore::~NetworkCore()
+{
+	delete state;
 }
 
 void NetworkCore::login() {
 	//TODO: Need to loop to re-attempt login
 	do {
 		int square;
-		state.min_x = 0;
-		state.min_y = 0;
-		state.max_x = 0;
+		state->min_x = 0;
+		state->min_y = 0;
+		state->max_x = 0;
 		ns1__login login_req;
 		ns1__loginResponse login_resp;
 		soaperr = s.login(&login_req, &login_resp);
 		if (soaperr == SOAP_OK) {
-			state.endgame_tick = login_resp.return_->endGamePoint;
+			state->endgame_tick = login_resp.return_->endGamePoint;
 #if DEBUG
-			cout << "Endgame starts at: " << state.endgame_tick << endl;
+			cout << "Endgame starts at: " << state->endgame_tick << endl;
 #endif
 			for (vector<ns1__stateArray*>::iterator boardx = login_resp.return_->states.begin(); boardx != login_resp.return_->states.end(); ++boardx) {
-				state.max_y = 0;
+				state->max_y = 0;
 				for (vector<ns1__state>::iterator boardy = (*boardx)->item.begin(); boardy != (*boardx)->item.end() ; ++boardy) {
 #if DEBUG
 					cout << *boardy;
@@ -151,13 +157,13 @@ void NetworkCore::login() {
 					case ns1__state__EMPTY:
 						square = B_EMPTY;
 					}
-					state.board[state.max_x][state.max_y] = square;
-					state.max_y++;
+					state->board[state->max_x][state->max_y] = square;
+					state->max_y++;
 				}
 #if DEBUG
 				cout << endl;
 #endif
-				state.max_x++;
+				state->max_x++;
 			}
 		}
 		if (soaperr != SOAP_OK) {
@@ -172,8 +178,8 @@ void NetworkCore::login() {
 	memcpy(p.board,board,sizeof(board));
 	cout << p;*/
 		//TODO: Need to know when endgame begins!
-		state.gameover = false;
-		state.stop_playout = false;
+		state->gameover = false;
+		state->stop_playout = false;
 
 	} while (soaperr != SOAP_OK);
 }
@@ -197,8 +203,8 @@ void NetworkCore::play()
 	int settle_time = 500; // only poll getStatus 200ms after the beginning of the tick.
 	bool repeated_tick;
 	bool skipped_tick;
-	UtilityScores* u = new UtilityScores;
 	MCTree* mc_tree = new MCTree;
+	PlayoutState* node_state = new PlayoutState;
 #if SAVESTARTMAP
 	bool firstrun = true;
 #endif
@@ -223,10 +229,10 @@ void NetworkCore::play()
 			repeated_tick = true;
 			if (lasttick != getStatus_resp.return_->currentTick) {
 				//OK, we got a new tick.
-				lasttick = state.tickno;
-				state.tickno = getStatus_resp.return_->currentTick;
+				lasttick = state->tickno;
+				state->tickno = getStatus_resp.return_->currentTick;
 				repeated_tick = false;
-				if (lasttick + 1 == state.tickno) {
+				if (lasttick + 1 == state->tickno) {
 					skipped_tick = false;
 				} else {
 					skipped_tick = true;
@@ -241,8 +247,8 @@ void NetworkCore::play()
 				}
 				//Re-init all the unit values
 				for (i = 0; i < 4;i++) {
-					state.tank[i].active = 0;
-					state.bullet[i].active = 0;
+					state->tank[i].active = 0;
+					state->bullet[i].active = 0;
 				}
 			}
 			/* ignoring getStatus_resp.return_->nextTickTime hopefully */
@@ -274,8 +280,8 @@ void NetworkCore::play()
 #if DEBUG > 1
 					cout << "-- base at (" << (*player)->base->x << "," << (*player)->base->y << ")" << endl;
 #endif
-					state.base[player_offset/2].x = (*player)->base->x;
-					state.base[player_offset/2].y = (*player)->base->y;
+					state->base[player_offset/2].x = (*player)->base->x;
+					state->base[player_offset/2].y = (*player)->base->y;
 				}
 
 				num_recv = 0;
@@ -315,19 +321,19 @@ void NetworkCore::play()
 					cout << "Syncing tanks" << endl;
 #endif
 					for (i = 0; i < num_recv; i++) {
-						state.tank[i+player_offset] = received_tanks[i];
+						state->tank[i+player_offset] = received_tanks[i];
 					}
 				} else {
 					// Clear active tanks
 					for (i = 0; i < 2; i++) {
-						state.tank[i+player_offset].active = 0;
+						state->tank[i+player_offset].active = 0;
 					}
 					check = 0;
 					// Compare tank ID's, if they match, copy over new data
 					for (i = 0; i < num_recv; i++) {
 						for (j = 0; j < 2; j++) {
-							if (state.tank[j+player_offset].id == received_tanks[i].id) {
-								state.tank[j+player_offset] = received_tanks[i];
+							if (state->tank[j+player_offset].id == received_tanks[i].id) {
+								state->tank[j+player_offset] = received_tanks[i];
 								check++;
 							}
 						}
@@ -335,7 +341,7 @@ void NetworkCore::play()
 					if (check != num_recv) {
 						cerr << "Warning, ID of tank suddenly changed!" << endl;
 						for (i = 0; i < num_recv; i++) {
-							state.tank[i+player_offset] = received_tanks[i];
+							state->tank[i+player_offset] = received_tanks[i];
 						}
 						state_synced = false;
 					}
@@ -373,24 +379,24 @@ void NetworkCore::play()
 #endif
 					for (i = player_offset; i < 2+player_offset; i++) {
 						//Unassociate bullets
-						state.bullet[i].o = 0;
-						state.bullet[i].x = 0;
-						state.bullet[i].y = 0;
-						state.bullet[i].id = INT_MAX;
+						state->bullet[i].o = 0;
+						state->bullet[i].x = 0;
+						state->bullet[i].y = 0;
+						state->bullet[i].id = INT_MAX;
 					}
 				}
 
 				// Clear active bullets
 				for (i = player_offset; i < 2+player_offset; i++) {
-					state.bullet[i].active = 0;
+					state->bullet[i].active = 0;
 				}
 
 				check = 0;
 				// Compare bullet ID's, if they match, copy over new data
 				for (i = 0; i < num_recv; i++) {
 					for (j = player_offset; j < 2+player_offset; j++) {
-						if (state.bullet[j].id == received_bullets[i].id) {
-							state.bullet[j] = received_bullets[i];
+						if (state->bullet[j].id == received_bullets[i].id) {
+							state->bullet[j] = received_bullets[i];
 							received_bullets[i].active = 0;
 							check++;
 						}
@@ -407,11 +413,11 @@ void NetworkCore::play()
 							j = 1;
 						}
 						for (i = player_offset; i < 2+player_offset; i++) {
-							if (!state.bullet[i].active) {
+							if (!state->bullet[i].active) {
 #if DEBUG > 1
-								cout << "Associated bullet id(" << received_bullets[j].id << ") with tank id(" << state.tank[i].id <<") by elimination" << endl;
+								cout << "Associated bullet id(" << received_bullets[j].id << ") with tank id(" << state->tank[i].id <<") by elimination" << endl;
 #endif
-								state.bullet[i] = received_bullets[j];
+								state->bullet[i] = received_bullets[j];
 							}
 						}
 					} else {
@@ -424,21 +430,22 @@ void NetworkCore::play()
 								b_y = received_bullets[i].y;
 								switch (received_bullets[i].o) {
 								case O_LEFT:
-									for (x = (b_x+3); x < state.max_x-2 && !found; x++) {
+									for (x = (b_x+3); x < state->max_x-2 && !found; x++) {
 										t = (x-(b_x+3))/2;
-										for (y = max((b_y-t),2); y <= min((b_y+t),state.max_y-2) && !found;y++) {
+										for (y = max((b_y-t),2); y <= min((b_y+t),state->max_y-2) && !found;y++) {
 											for (j = player_offset; j < player_offset+2 && !found; j++) {
-												found = state.isTankAt(j,x,y);
+												found = state->isTankAt(j,x,y);
 											}
 										}
 									}
 									break;
 								case O_RIGHT:
+
 									for (x = (b_x-3); x > 2 && !found; x--) {
 										t = ((b_x-3)-x)/2;
-										for (y = max((b_y-t),2); y <= min((b_y+t),state.max_y-2) && !found;y++) {
+										for (y = max((b_y-t),2); y <= min((b_y+t),state->max_y-2) && !found;y++) {
 											for (j = player_offset; j < player_offset+2 && !found; j++) {
-												found = state.isTankAt(j,x,y);
+												found = state->isTankAt(j,x,y);
 											}
 										}
 									}
@@ -446,20 +453,20 @@ void NetworkCore::play()
 								case O_DOWN:
 									for (y = (b_y-3); y > 2 && !found; y--) {
 										t = ((b_y-3)-y)/2;
-										for (x = max((b_x-t),2); x <= min((b_x+t),state.max_x-2) && !found;x++) {
+										for (x = max((b_x-t),2); x <= min((b_x+t),state->max_x-2) && !found;x++) {
 											for (j = player_offset; j < player_offset+2 && !found; j++) {
-												found = state.isTankAt(j,x,y);
+												found = state->isTankAt(j,x,y);
 											}
 										}
 									}
 									break;
 								default:
 								case O_UP:
-									for (y = (b_y+3); y < state.max_y-2 && !found; y++) {
+									for (y = (b_y+3); y < state->max_y-2 && !found; y++) {
 										t = (y-(b_y+3))/2;
-										for (x = max((b_x-t),2); x <= min((b_x+t),state.max_x-2) && !found;x++) {
+										for (x = max((b_x-t),2); x <= min((b_x+t),state->max_x-2) && !found;x++) {
 											for (j = player_offset; j < player_offset+2 && !found; j++) {
-												found = state.isTankAt(j,x,y);
+												found = state->isTankAt(j,x,y);
 											}
 										}
 									}
@@ -469,18 +476,18 @@ void NetworkCore::play()
 								{
 									j--;
 #if DEBUG > 1
-									cout << "Associated bullet id(" << received_bullets[i].id << ") with tank id(" << state.tank[j].id <<") by backtracking" << endl;
+									cout << "Associated bullet id(" << received_bullets[i].id << ") with tank id(" << state->tank[j].id <<") by backtracking" << endl;
 #endif
-									state.bullet[j] = received_bullets[i];
+									state->bullet[j] = received_bullets[i];
 									received_bullets[i].active = 0;
 								} else {
 									//Orphaned bullet: look for an inactive tank
 									for (j = player_offset; j < 2+player_offset; j++) {
-										if ((!state.tank[j].active) && (!state.bullet[j].active)) {
+										if ((!state->tank[j].active) && (!state->bullet[j].active)) {
 #if DEBUG > 1
 											cout << "Associated bullet id(" << received_bullets[i].id << ") with orphan" << endl;
 #endif
-											state.bullet[j] = received_bullets[i];
+											state->bullet[j] = received_bullets[i];
 											received_bullets[i].active = 0;
 											break;
 										}
@@ -492,8 +499,8 @@ void NetworkCore::play()
 				}
 
 				for (i = 0; i < 2; i++) {
-					if (!state.bullet[i].active) {
-						state.bullet[i].id = INT_MAX;
+					if (!state->bullet[i].active) {
+						state->bullet[i].id = INT_MAX;
 					}
 				}
 
@@ -507,12 +514,12 @@ void NetworkCore::play()
 				vector< pair<int,int> > tanks_and_ids(4);
 				for (i = 0; i < 4; i++) {
 					tank_and_id.first = i;
-					tank_and_id.second = state.tank[i].id;
+					tank_and_id.second = state->tank[i].id;
 					tanks_and_ids[i] = tank_and_id;
 				}
 				sort(tanks_and_ids.begin(), tanks_and_ids.end(), sort_pair_second<int, int>());
 				for (i = 0; i < 4; i++) {
-					state.tank_priority[i] = tanks_and_ids[i].first;
+					state->tank_priority[i] = tanks_and_ids[i].first;
 				}
 			}
 
@@ -532,17 +539,17 @@ void NetworkCore::play()
 						switch (*block_event.newState) {
 						case ns1__state__FULL:
 							//WTF, walls suddenly appeared?!?!?
-							state.board[block_event.point->x][block_event.point->y] |= B_WALL;
+							state->board[block_event.point->x][block_event.point->y] |= B_WALL;
 							break;
 						case ns1__state__NONE:
 						case ns1__state__EMPTY:
 							//Walls got destroyed
-							state.board[block_event.point->x][block_event.point->y] |= B_WALL;
-							state.board[block_event.point->x][block_event.point->y] ^= B_WALL;
+							state->board[block_event.point->x][block_event.point->y] |= B_WALL;
+							state->board[block_event.point->x][block_event.point->y] ^= B_WALL;
 							break;
 						case ns1__state__OUT_USCOREOF_USCOREBOUNDS:
 							//Endgame
-							state.board[block_event.point->x][block_event.point->y] |= B_OOB;
+							state->board[block_event.point->x][block_event.point->y] |= B_OOB;
 							break;
 						}
 					}
@@ -578,14 +585,14 @@ void NetworkCore::play()
 #endif
 			} //if events
 
-			tmp_state = state;
-			tmp_state.updateCanFire(state);
-			state.populateUtilityScores(*u);
+			state->updateCanFire();
+			state->updateSimpleUtilityScores();
+			state->updateExpensiveUtilityScores();
 			//TODO: check for cases when state is NOT synced!
 			if (!state_synced) {
-				mc_tree->init(state,*u);
+				mc_tree->init(state);
 			} else {
-				mc_tree->init(state,*u);
+				mc_tree->init(state);
 			}
 			state_synced = true;
 #if SAVESTARTMAP
@@ -665,29 +672,29 @@ void NetworkCore::play()
 			ns1__setActionsResponse setActions_resp;
 			ns1__action action[2];
 			tree_size_t node_id;
-			PlayoutState node_state;
 			vector<Move> path;
 			vector<double> results;
 			unsigned char width = 3;
 			unsigned int alpha;
 			int greedycmd[2];
 #if DEBUG
-			PlayoutState paintme = state;
-			paintme.drawBases();
-			paintme.drawBullets();
-			paintme.drawTanks();
-			paintme.paint();
+			PlayoutState* paintme = new PlayoutState(state);
+			paintme->drawBases();
+			paintme->drawBullets();
+			paintme->drawTanks();
+			paintme->paint();
+			delete paintme;
 #endif
 			sleeptime = safety_margin;
 
 			switch (policy) {
 			case POLICY_MCTS:
 			case POLICY_GREEDY:
-				//state.paint(*u);
+				//state->paint(*u);
 				greedycmd[0] = C_NONE;
 				greedycmd[1] = C_NONE;
 				for (tankid = 0; tankid < 2; tankid++) {
-					if (state.tank[tankid].active) {
+					if (state->tank[tankid].active) {
 #if DEBUG
 						cout << "Costs [" << tankid << "]:";
 #endif
@@ -695,7 +702,7 @@ void NetworkCore::play()
 						int bestcost = INT_MAX;
 						int cost;
 						for (int c = 0; c < 6; c++) {
-							cost = state.cmdToExpensiveUtility(c,tankid,*u);
+							cost = state->cmdToExpensiveUtility(c,tankid);
 #if DEBUG
 							cout << " " << cmd2str(c) << ": " << cost;
 #endif
@@ -714,8 +721,8 @@ void NetworkCore::play()
 					}
 				}
 #if HALFLIMP
-				if ((state.tank[2].active+state.tank[3].active) == 0 &&
-						(state.tank[0].active+state.tank[1].active) == 2) {
+				if ((state->tank[2].active+state->tank[3].active) == 0 &&
+						(state->tank[0].active+state->tank[1].active) == 2) {
 #if DEBUG
 					if (policy == POLICY_GREEDY) {
 						cout << "GOING HALF-LIMP!" << endl;
@@ -726,7 +733,7 @@ void NetworkCore::play()
 #endif
 
 #if AREYOUNUTS
-				if (state.tickno > 55) {
+				if (state->tickno > 55) {
 					cout << "GOING LIMP!" << endl;
 					action[0] = ns1__action__NONE;
 					action[1] = ns1__action__NONE;
@@ -736,7 +743,7 @@ void NetworkCore::play()
 #if DEBUG
 				cout << "Greedy chose";
 				for (i = 0; i < 2; i++) {
-					if (state.tank[i].active) {
+					if (state->tank[i].active) {
 						cout << " tank[" << i << "]: " << action2str(action[i]);
 					}
 				}
@@ -761,7 +768,7 @@ void NetworkCore::play()
 				loop_timer.restart();
 				uint32_t linear;
 				while (looptime < (window-50)*1000) {
-					linear = sfmt_genrand_uint32(&mc_tree->worker_sfmt[0]) % 10000;
+					linear = sfmt_genrand_uint32(mc_tree->worker_sfmt[0]) % 10000;
 					if (linear > 8500) {
 						width = 2;
 					} else if (linear > 100) {
@@ -773,10 +780,10 @@ void NetworkCore::play()
 					}
 					path.clear();
 					results.clear();
-					node_state = mc_tree->root_state;
+					memcpy(node_state,mc_tree->root_state,sizeof(PlayoutState));
 					node_id = mc_tree->root_id;
 					mc_tree->select(width,path,node_id,node_state);
-					mc_tree->expand_some(width,node_id,node_state,*u,path,results);
+					mc_tree->expand_some(width,node_id,node_state,path,results);
 					mc_tree->backprop(path,results);
 					loop_timer.stop();
 					looptime += loop_timer.get_microseconds();
@@ -789,15 +796,15 @@ void NetworkCore::play()
 #if DEBUG
 				cout << "After MCTS: ";
 				for (i = 0; i < 2; i++) {
-					if (state.tank[i].active) {
+					if (state->tank[i].active) {
 						cout << " tank[" << i << "]: " << action2str(action[i]);
 					}
 				}
 				cout << endl;
 #endif
 #if HALFLIMP
-				if ((state.tank[2].active+state.tank[3].active) == 0 &&
-						(state.tank[0].active+state.tank[1].active) == 2) {
+				if ((state->tank[2].active+state->tank[3].active) == 0 &&
+						(state->tank[0].active+state->tank[1].active) == 2) {
 #if DEBUG
 					cout << "GOING HALF-LIMP!" << endl;
 #endif
@@ -813,10 +820,10 @@ void NetworkCore::play()
 				break;
 			case POLICY_FIXED:
 				for (tankid = 0; tankid < 2; tankid++) {
-					if (state.tank[tankid].active) {
+					if (state->tank[tankid].active) {
 						int myid = (myname == "Player Two");
-						if (state.tickno < NUMC) {
-							action[tankid] = hton_cmd(fixed_commands[myid][tankid][state.tickno]);
+						if (state->tickno < NUMC) {
+							action[tankid] = hton_cmd(fixed_commands[myid][tankid][state->tickno]);
 						}
 					}
 				}
@@ -833,7 +840,7 @@ void NetworkCore::play()
 			cout << "AI took " << ai_timer.get_milliseconds() << " ms, shortening the window to: " << window << endl;
 			cout << "AI chose";
 			for (i = 0; i < 2; i++) {
-				if (state.tank[i].active) {
+				if (state->tank[i].active) {
 					cout << " tank[" << i << "]: " << action2str(action[i]);
 				}
 			}
@@ -847,8 +854,8 @@ void NetworkCore::play()
 			cout << "Finished delaying, next tick should be imminent!" << endl;
 #endif
 			for (tankid = 0; tankid < 2; tankid++) {
-				if (state.tank[tankid].active) {
-					setAction_req.arg0 = state.tank[tankid].id;
+				if (state->tank[tankid].active) {
+					setAction_req.arg0 = state->tank[tankid].id;
 					setAction_req.arg1 = &action[tankid];
 					soap_timer.restart();
 					soaperr = s.setAction(&setAction_req,&setAction_resp);
@@ -888,6 +895,6 @@ void NetworkCore::play()
 			}
 		}
 	}
-	delete u;
 	delete mc_tree;
+	delete node_state;
 }
