@@ -35,11 +35,13 @@ struct BaseState {
 	int x,y;
 };
 
+typedef int costmatrix_t[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
 class UtilityScores {
 public:
 	//(player)(x)(y)(o)
-	int simplecost[2][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
-	int expensivecost[4][MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM][4];
+	costmatrix_t simplecost[2];
+	//(tankid)(x)(y)(o)
+	costmatrix_t expensivecost[4];
 };
 
 struct Tank {
@@ -85,6 +87,7 @@ public:
 	void updateCanFire(PlayoutState& p);
 	bool insideBounds(const int x, const int y);
 	bool isTankInsideBounds(const int x, const int y);
+	bool canRotate(const int x, const int y, const int o);
 	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y);
 	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y);
 	bool clearPath(int x, int y, int o);

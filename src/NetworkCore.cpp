@@ -21,7 +21,7 @@
 
 #define DEBUG 0
 
-#define NUMC 10
+#define NUMC 2
 #define NUMPLAYERS 2
 #define NUMTANKS 2
 #define HALFLIMP 0
@@ -30,12 +30,12 @@
 
 const int fixed_commands[NUMPLAYERS][NUMTANKS][NUMC] = {
 		{ //"Player One"
-				{C_NONE,C_LEFT,C_FIRE,C_LEFT,C_LEFT,C_LEFT,C_LEFT,C_LEFT,C_LEFT,C_LEFT},
-				{C_NONE,C_RIGHT,C_FIRE,C_RIGHT,C_RIGHT,C_RIGHT,C_RIGHT,C_RIGHT,C_RIGHT,C_RIGHT}
+				{C_NONE,C_NONE},
+				{C_NONE,C_NONE}
 		},
 		{ //"Player Two"
-				{C_NONE,C_UP,C_FIRE,C_LEFT,C_UP,C_LEFT,C_UP,C_LEFT,C_UP,C_LEFT},
-				{C_NONE,C_DOWN,C_FIRE,C_UP,C_RIGHT,C_UP,C_RIGHT,C_UP,C_RIGHT,C_UP}
+				{C_NONE,C_NONE},
+				{C_NONE,C_NONE}
 		}
 
 };
