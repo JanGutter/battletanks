@@ -606,7 +606,7 @@ bool PlayoutState::canMove(int x, int y, int o, board_t& obstacles)
 	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
-		clear = !(obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_OOB|B_WALL|B_TANK));
+		clear = !(obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_BASE|B_OOB|B_WALL|B_TANK));
 #if ASSERT
 		if (!insideBounds(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y))) {
 			//	cerr << "clearPath going OOB! x: " << x << " y: " << y << " min_y: " << min_y << endl;
@@ -823,7 +823,8 @@ bool PlayoutState::lineOfSight(const int sx, const int sy, const int o, const in
 
 void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacles_t& obstacles)
 {
-	int o,i,j,tankid,comradeid,enemyid,traveldistance[4];
+	int o,i,j,tankid,comradeid,traveldistance[4];
+	//int enemyid;
 	int targetx,targety,deltax,deltay,playerid;
 	priority_queue<Tank> frontier;
 
@@ -840,15 +841,15 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 		for (tankid = (playerid*2); tankid < (playerid*2+2); tankid++) {
 			//Each tank has a different set of obstacles
 			memcpy(obstacles[tankid],board,sizeof(board_t));
+			/*
 			for (enemyid = (1-playerid)*2; enemyid < ((1-playerid)*2+2); enemyid++) {
 				if (tank[enemyid].active) {
 					if (abs(tank[enemyid].x - tank[tankid].x)
 							+ abs(tank[enemyid].y - tank[tankid].y) < TANK_PROXIMITY_WARNING) {
-						//TODO: Only nearby tanks get drawn.
 						drawTankObstacle(enemyid,obstacles[tankid]);
 					}
 				}
-			}
+			}*/
 			comradeid = tankid^1;
 			//Friendly tank counts as immovable obstacle
 			if (tank[comradeid].active) {
@@ -879,7 +880,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 				} else {
 					continue;
 				}
-				for (i = 0; i < 10; i++) {
+				for (i = 0; i < max_y/2; i++) {
 					if (insideBounds(targetx,targety)
 							&& !(board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o)))) {
 						obstacles[tankid][targetx][targety] = B_OOB;
@@ -913,7 +914,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 							if (insideBounds(targetx,targety)
 									&& !(board[targetx][targety] & B_OPPOSITE(bullet[j].o))) {
 								if (board[targetx][targety] & B_WALL) {
-									i++;
+									i*=2;
 								}
 								obstacles[tankid][targetx][targety] = B_OOB;
 								targetx += deltax;
@@ -1038,7 +1039,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 
 	int besto = bestOCMD(t.x,t.y,costmatrix,cmds);
 	cmd.first = C_NONE;
-	cmd.second = costmatrix[t.x][t.y][t.o];
+	cmd.second = costmatrix[t.x][t.y][t.o]+1;
 	//One tank goes limp
 	if (enemy_tanks == 0 && friendly_tanks == 2) {
 		int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
@@ -1073,7 +1074,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 			hitcost = INT_MAX-1;
 			if (onTarget(player,x,y)) {
 				//HIT!
-				hitcost = ((i/2)+wallcount+1);
+				hitcost = ((i/2)+wallcount);
 			}
 			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
 				//Shoot to clear a space to move in
@@ -1131,7 +1132,7 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 	} else {
 		besto = bestOCMD(t.x,t.y,costmatrix,obstacles,cmds);
 		cmd.first = C_NONE;
-		cmd.second = costmatrix[t.x][t.y][t.o];
+		cmd.second = costmatrix[t.x][t.y][t.o]+1;
 		//One tank goes limp
 		if (enemy_tanks == 0 && friendly_tanks == 2) {
 			int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
@@ -1168,7 +1169,7 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 			hitcost = INT_MAX-1;
 			if (onTarget(player,x,y)) {
 				//HIT!
-				hitcost = ((i/2)+wallcount+1);
+				hitcost = ((i/2)+wallcount);
 			}
 			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
 				//Shoot to clear a space to move in
@@ -1226,7 +1227,7 @@ int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, board_t& obst
 int PlayoutState::bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t& cmds)
 {
 	scored_cmd_t o_score;
-	int o,i,j,x,y,ai,aj;
+	int o,i,j,x,y,ai,aj,bx,by,range;
 	for (o = 0; o < 4; o++) {
 		x = tank[t].x + O_LOOKUP(o,O_X);
 		y = tank[t].y + O_LOOKUP(o,O_Y);
@@ -1236,6 +1237,23 @@ int PlayoutState::bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t&
 			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
 				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
 					o_score.second += obstacles[i][j]*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
+				}
+			}
+			if (o_score.second == 0) {
+				range = 0;
+				//It's either the wrong way or the right way!
+				bx = tank[t].x + 3*O_LOOKUP(o,O_X);
+				by = tank[t].y + 3*O_LOOKUP(o,O_X);
+				while(insideBounds(bx,by)) {
+					if ((board[bx][by] & B_OPPOSITE(o)) || onTarget(t/2,bx,by)) {
+						break;
+					}
+					range++;
+					bx += O_LOOKUP(o,O_X);
+					by += O_LOOKUP(o,O_Y);
+				}
+				if (!insideBounds(bx,by)) {
+					o_score.second = range;
 				}
 			}
 		} else {
@@ -1259,7 +1277,9 @@ int PlayoutState::bestOCMDDodgeCantfire(int t, board_t& obstacles, scored_cmds_t
 			o_score.second = 0;
 			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
 				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					o_score.second += obstacles[i][j]*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
+					if (obstacles[i][j]) {
+						o_score.second += B_OOB*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
+					}
 				}
 			}
 		} else {
