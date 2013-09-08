@@ -602,8 +602,7 @@ bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_
 
 bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 {
-	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
-	bool clear = true;
+	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
 		clear = (obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_WALL|B_OOB)) == 0;
@@ -618,8 +617,7 @@ bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 
 bool PlayoutState::clearPath(int x, int y, int o)
 {
-	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
-	bool clear = true;
+	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
 		clear = (board[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_WALL|B_TANK)) == 0;
@@ -739,7 +737,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 	}
 }
 
-void PlayoutState::updateSimpleUtilityScores(UtilityScores& utility, board_t& obstacles)
+void PlayoutState::updateSimpleUtilityScores(UtilityScores& utility, obstacles_t& obstacles)
 {
 	int i,j,player,o;
 	priority_queue<Tank> frontier;
@@ -755,12 +753,12 @@ void PlayoutState::updateSimpleUtilityScores(UtilityScores& utility, board_t& ob
 	}
 
 	//Obstacles are the same for both sides.
-	memcpy(obstacles,board,sizeof(obstacles));
+	memcpy(obstacles[0],board,sizeof(board_t));
 
 	for (player = 0; player < 2; player++) {
 		//Just go after the base
-		seedBase(1-player,frontier,obstacles);
-		findPath(frontier,utility.simplecost[player],obstacles);
+		seedBase(1-player,frontier,obstacles[0]);
+		findPath(frontier,utility.simplecost[player],obstacles[0]);
 	}
 
 	for (o = 0; o < 4; o++) {
@@ -805,7 +803,7 @@ bool PlayoutState::lineOfSight(const int sx, const int sy, const int o, const in
 	}
 }
 
-void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles)
+void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacles_t& obstacles)
 {
 	int o,i,j,tankid,comradeid,enemyid,traveldistance[4];
 	int targetx,targety,deltax,deltay,playerid;
@@ -823,17 +821,17 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 	for (playerid = 0; playerid < 2; playerid++) {
 		for (tankid = (playerid*2); tankid < (playerid*2+2); tankid++) {
 			//Each tank has a different set of obstacles
-			memcpy(obstacles,board,sizeof(obstacles));
-			for (enemyid = (1-playerid*2); enemyid < ((1-playerid)*2+2); enemyid++) {
+			memcpy(obstacles[tankid],board,sizeof(board_t));
+			for (enemyid = (1-playerid)*2; enemyid < ((1-playerid)*2+2); enemyid++) {
 				if (tank[enemyid].active) {
 					//TODO: Only nearby tanks get drawn.
-					drawTankObstacle(enemyid,obstacles);
+					drawTankObstacle(enemyid,obstacles[tankid]);
 				}
 			}
 			comradeid = tankid^1;
 			//Friendly tank counts as immovable obstacle
 			if (tank[comradeid].active) {
-				drawTankObstacle(comradeid,obstacles);
+				drawTankObstacle(comradeid,obstacles[tankid]);
 				if (tankid & 1) {
 					//Tank 0 has priority.
 					targetx = tank[comradeid].x;
@@ -843,7 +841,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 						o = bestO(targetx,targety,utility.expensivecost[comradeid]);
 						targetx += O_LOOKUP(o,O_X);
 						targety += O_LOOKUP(o,O_Y);
-						drawTankObstacle(targetx,targety,obstacles);
+						drawTankObstacle(targetx,targety,obstacles[tankid]);
 						if (lineOfSight(targetx,targety,o,base[1-playerid].x,base[1-playerid].y)) {
 							break;
 						}
@@ -863,7 +861,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 				for (i = 0; i < 10; i++) {
 					if (insideBounds(targetx,targety)
 							&& !(board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o)))) {
-						obstacles[targetx][targety] = B_OOB;
+						obstacles[tankid][targetx][targety] = B_OOB;
 						targetx += deltax;
 						targety += deltay;
 					} else {
@@ -894,7 +892,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 								if (board[targetx][targety] & B_WALL) {
 									i++;
 								}
-								obstacles[targetx][targety] = B_OOB;
+								obstacles[tankid][targetx][targety] = B_OOB;
 								targetx += deltax;
 								targety += deltay;
 							} else {
@@ -905,13 +903,13 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 					traveldistance[j] = 10;
 				}
 			}
-			seedBase(1-playerid,frontier,obstacles);
+			seedBase(1-playerid,frontier,obstacles[tankid]);
 #if DEBUGOBSTACLES
 			cout << "Obstacles for tank " << tankid << endl;
 			cout << "=======================" << endl;
-			paintObstacles(obstacles);
+			paintObstacles(obstacles[tankid]);
 #endif
-			findPath(frontier,utility.expensivecost[tankid],obstacles);
+			findPath(frontier,utility.expensivecost[tankid],obstacles[tankid]);
 
 			if (tank[tankid].canfire) {
 				//Put down breadcrumbs to turn and fire for active defence

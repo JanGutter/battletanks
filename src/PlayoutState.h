@@ -59,6 +59,7 @@ inline bool operator<(const Tank& a,const Tank& b)
 }
 
 typedef unsigned char board_t[MAX_BATTLEFIELD_DIM][MAX_BATTLEFIELD_DIM];
+typedef board_t obstacles_t[4];
 
 //POD structure
 class PlayoutState {
@@ -113,8 +114,8 @@ public:
 	void drawTinyTank(const int t, const int block);
 	void seedBase(const int player, priority_queue<Tank>& frontier, board_t& obstacles);
 	void findPath(priority_queue<Tank>& frontier, costmatrix_t& costmatrix, board_t& obstacles);
-	void updateSimpleUtilityScores(UtilityScores& utility, board_t& obstacles);
-	void updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles);
+	void updateSimpleUtilityScores(UtilityScores& utility, obstacles_t& obstacles);
+	void updateExpensiveUtilityScores(UtilityScores& utility, obstacles_t& obstacles);
 	bool lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty);
 	void save();
 	int bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);

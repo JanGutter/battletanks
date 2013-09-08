@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 		utility_stat.init();
 		backprop_stat.init();
 		expand_stat.init();
-		board_t obstacles;
+		obstacles_t obstacles;
 #endif
 		overall_timer.restart();
 		tree_size_t node_id;

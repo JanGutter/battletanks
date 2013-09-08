@@ -66,19 +66,6 @@ typedef uint16_t move_t;
 #define C_DOWN 3
 #define C_LEFT 4
 #define C_RIGHT 5
-#if 0
-//C_M_LOOKUP_TABLE looks up the movement from a command
-const int C_M_LOOKUP_TABLE[6][2] = {
-		{ 0, 0},/*none*/
-		{ 0, 0},/*fire*/
-		{ 0,-1},/*up*/
-		{ 0, 1},/*down*/
-		{-1, 0},/*left*/
-		{ 1, 0}/*right*/
-};
-
-#define C_M_LOOKUP(c,axis) C_M_LOOKUP_TABLE[(c)][(axis)]
-#endif
 #define C_ISMOVE(c) ((c) > 1)
 #define C_TO_O(c) ((c) - 2)
 
@@ -87,7 +74,7 @@ const int BUMP_LOOKUP_TABLE[4][5][2] = {
 		{{-2, 3},{-1, 3},{ 0, 3},{ 1, 3},{ 2, 3}},/*down*/
 		{{-3,-2},{-3,-1},{-3, 0},{-3, 1},{-3, 2}},/*left*/
 		{{ 3,-2},{ 3,-1},{ 3, 0},{ 3, 1},{ 3, 2}},/*right*/
-		};
+};
 
 #define O_X 0
 #define O_Y 1
@@ -115,7 +102,7 @@ const int FIRE_LOOKUP_TABLE[4][2] = {
 		{ 0, 3},/*down*/
 		{-3, 0},/*left*/
 		{ 3, 0},/*right*/
-		};
+};
 #define FIRE_LOOKUP(o,axis) FIRE_LOOKUP_TABLE[(o)][(axis)]
 
 #define NUMMOVES 36 //Number of possible moves
@@ -172,6 +159,22 @@ const int WEAKSPOT_LOOKUP_TABLE[5] = {
 };
 
 #define WEAKSPOT_LOOKUP(i) WEAKSPOT_LOOKUP_TABLE[(i)]
+
+const int AVOIDANCE_MATRIX[5][5] = {
+	{1,2,0,2,1},
+	{2,3,0,3,2},
+	{0,0,0,0,0},
+	{2,3,0,3,2},
+	{1,2,0,1,2}
+};
+
+const int AVOID_FRIENDLY_MATRIX[5][5] = {
+	{1,2,3,2,1},
+	{2,3,4,3,2},
+	{3,4,5,4,3},
+	{2,3,4,3,2},
+	{1,2,3,1,2}
+};
 
 inline const char* o2str(int o) {
 	switch (o) {
