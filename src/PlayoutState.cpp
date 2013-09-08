@@ -652,7 +652,7 @@ void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier, bo
 {
 	int i,o;
 	Tank t;
-
+	int wallcount;
 	for (o = 0; o < 4; o++) {
 		//The 4 dirs for the base
 		t.cost = 1;
@@ -661,15 +661,17 @@ void PlayoutState::seedBase(const int player, priority_queue<Tank>& frontier, bo
 		int dx = -O_LOOKUP(o,O_X);
 		int dy = -O_LOOKUP(o,O_Y);
 		t.o = o;
+		wallcount = 1;
 		for (i = 0; i < max(max_x,max_y); i++) {
 			if ((i & 1) == 0) {
-				t.cost++;
+				t.cost+=wallcount;
 			}
 			if (!isTankInsideBounds(t.x,t.y)) {
 				break;
 			}
-			if ((obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) != 0) {
-				break;
+			if (obstacles[t.x-3*dx][t.y-3*dy] & B_WALL) {
+				wallcount++;
+				t.cost+=wallcount;
 			}
 			frontier.push(t);
 			t.x += dx;
@@ -826,6 +828,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 			if (tank[comradeid].active) {
 				drawTankObstacle(comradeid,obstacles);
 				if (tankid & 1) {
+					//Tank 0 has priority.
 					targetx = tank[comradeid].x;
 					targety = tank[comradeid].y;
 					for (i = 0; i < max_y; i++) {
