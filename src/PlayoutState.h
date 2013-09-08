@@ -120,6 +120,7 @@ public:
 	bool lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty);
 	void save();
 	int bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	int bestOCMD(int x, int y, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds);
 	int bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds);
 	int bestO(int x, int y, costmatrix_t& costmatrix);
 	//int cmdToSimpleUtility(int c, int t);

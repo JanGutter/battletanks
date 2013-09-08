@@ -601,11 +601,12 @@ bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_
 }
 
 bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
+//Check for OOB obstacles
 {
 	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
 	int i;
 	for (i = 0; clear && (i < 5); i++) {
-		clear = (obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_WALL|B_OOB)) == 0;
+		clear = obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & B_OOB;
 #if ASSERT
 		if (!insideBounds(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y))) {
 			//	cerr << "clearPath going OOB! x: " << x << " y: " << y << " min_y: " << min_y << endl;
@@ -616,6 +617,7 @@ bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 }
 
 bool PlayoutState::clearPath(int x, int y, int o)
+//Check for walls
 {
 	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
 	int i;
@@ -1099,7 +1101,7 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 		cmd.second = INT_MAX;
 		cmds.push_back(cmd);
 	} else {
-		besto = bestOCMD(t.x,t.y,costmatrix,cmds);
+		besto = bestOCMD(t.x,t.y,costmatrix,obstacles,cmds);
 		cmd.first = C_NONE;
 		cmd.second = costmatrix[t.x][t.y][t.o];
 		//One tank goes limp
@@ -1163,6 +1165,28 @@ int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t
 			o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
 		} else {
 			o_score.second = costmatrix[x][y][o];
+		}
+		cmds.push_back(o_score);
+	}
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
+}
+
+int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds)
+{
+	scored_cmd_t o_score;
+	int o;
+	for (o = 0; o < 4; o++) {
+		o_score.first = o+C_UP;
+		if (clearPath(x,y,o,obstacles)) {
+			//No nasty OOB stuff.
+			if (clearPath(x,y,o)) {
+				o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
+			} else {
+				o_score.second = costmatrix[x][y][o];
+			}
+		} else {
+			o_score.second = INT_MAX;
 		}
 		cmds.push_back(o_score);
 	}
