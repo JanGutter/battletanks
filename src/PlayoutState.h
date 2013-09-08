@@ -104,6 +104,7 @@ public:
 	bool insideTinyTank(const int t, const int x, const int y);
 	bool onBase(const int b, const int x, const int y);
 	bool onTarget(const int t, const int x, const int y);
+	bool onFriendly(const int t, const int x, const int y);
 	bool incomingBullet(const int x, const int y, const int o);
 	bool isTankAt(const int t, const int x, const int y);
 	void drawTank(const int t, const int block);

@@ -806,7 +806,7 @@ bool PlayoutState::lineOfSight(const int sx, const int sy, const int o, const in
 
 void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t& obstacles)
 {
-	int o,i,j,tankid,comradeid,traveldistance[4];
+	int o,i,j,tankid,comradeid,enemyid,traveldistance[4];
 	int targetx,targety,deltax,deltay,playerid;
 	priority_queue<Tank> frontier;
 
@@ -823,6 +823,11 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 		for (tankid = (playerid*2); tankid < (playerid*2+2); tankid++) {
 			//Each tank has a different set of obstacles
 			memcpy(obstacles,board,sizeof(obstacles));
+			for (enemyid = (1-playerid*2); enemyid < ((1-playerid)*2+2); enemyid++) {
+				if (tank[enemyid].active) {
+					drawTankObstacle(enemyid,obstacles);
+				}
+			}
 			comradeid = tankid^1;
 			//Friendly tank counts as immovable obstacle
 			if (tank[comradeid].active) {
@@ -950,6 +955,11 @@ bool PlayoutState::onTarget(const int p, const int x, const int y)
 	return (onBase(1-p,x,y) || insideTank((1-p)*2,x,y) || insideTank((1-p)*2+1,x,y));
 }
 
+bool PlayoutState::onFriendly(const int p, const int x, const int y)
+{
+	return (onBase(p,x,y) || insideTank(p,x,y) || insideTank(p+1,x,y));
+}
+
 bool PlayoutState::incomingBullet(const int x, const int y, const int o)
 {
 	int i;
@@ -996,7 +1006,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
 		i = 0;
-		while (insideBounds(x,y) && !onTarget(player,x,y)) {
+		while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
 			//TODO: switch to map lookup?
 			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
 				cmd.second = 0;
@@ -1026,152 +1036,6 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
 	return cmds[0].first;
 }
-#if 0
-int PlayoutState::cmdToSimpleUtility(int c, int tank_id)
-{
-	int i;
-	int wallcount;
-	int hitcost;
-	int x,y,o;
-	int player = tank_id/2;
-	TankState& t = tank[tank_id];
-	int playerid = tank_id/2;
-	int friendly_tanks = tank[playerid*2].active+tank[playerid*2+1].active;
-	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
-	//One tank goes limp
-	if (enemy_tanks == 0 && friendly_tanks == 2) {
-		int tank_cost = abs(tank[tank_id].x-base[1-playerid].x)+abs(tank[tank_id].y-base[1-playerid].y);
-		int comrade_cost = abs(tank[tank_id].x-base[1-playerid].x)+abs(tank[tank_id].y-base[1-playerid].y);
-		if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
-			if (c == C_NONE) {
-				return 0;
-			} else {
-				return INT_MAX;
-			}
-		}
-	}
-	switch (c) {
-	case C_FIRE:
-		if (!t.canfire) {
-			return INT_MAX;
-		}
-		x = t.x + FIRE_LOOKUP(t.o,O_X);
-		y = t.y + FIRE_LOOKUP(t.o,O_Y);
-		wallcount = 0;
-		i = 0;
-
-		while (insideBounds(x,y) && !onTarget(player,x,y)) {
-			if (wallcount == 0 && incomingBullet(x,y,t.o)) {
-				return 0; //Bullet heading this way, FIRE!
-			}
-			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
-			i++;
-			x += O_LOOKUP(t.o,O_X);
-			y += O_LOOKUP(t.o,O_Y);
-		}
-		hitcost = INT_MAX-1;
-		if (onTarget(player,x,y)) {
-			//HIT!
-			hitcost = ((i/2)+wallcount+1);
-		}
-		if (isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) &&
-				clearablePath(t.x,t.y,t.o)) {
-			//Shoot to clear a space to move in
-			return min(hitcost,utility.simplecost[player][t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
-		} else {
-			//Just shoot
-			return hitcost;
-		}
-	case C_UP:
-	case C_DOWN:
-	case C_LEFT:
-	case C_RIGHT:
-		o = c-2;
-		if (isTankInsideBounds(t.x + O_LOOKUP(o,O_X),t.y + O_LOOKUP(o,O_Y)) &&
-				clearPath(t.x,t.y,o)) {
-			return utility.simplecost[player][t.x + O_LOOKUP(o,O_X)][t.y + O_LOOKUP(o,O_Y)][o];
-		} else {
-			return utility.simplecost[player][t.x][t.y][o];
-		}
-	default:
-	case C_NONE:
-		return INT_MAX;
-	}
-}
-
-int PlayoutState::cmdToExpensiveUtility(int c, int tank_id)
-{
-	int i;
-	int wallcount;
-	int hitcost;
-	int x,y,o;
-
-	int player = tank_id/2;
-	TankState& t = tank[tank_id];
-	int playerid = tank_id/2;
-	int friendly_tanks = tank[playerid*2].active+tank[playerid*2+1].active;
-	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
-	//One tank goes limp
-	if (enemy_tanks == 0 && friendly_tanks == 2) {
-		int tank_cost = abs(tank[tank_id].x-base[1-playerid].x)+abs(tank[tank_id].y-base[1-playerid].y);
-		int comrade_cost = abs(tank[tank_id].x-base[1-playerid].x)+abs(tank[tank_id].y-base[1-playerid].y);
-		if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
-			if (c == C_NONE) {
-				return 0;
-			} else {
-				return INT_MAX;
-			}
-		}
-	}
-	switch (c) {
-	case C_FIRE:
-		if (!t.canfire) {
-			return INT_MAX;
-		}
-		x = t.x + FIRE_LOOKUP(t.o,O_X);
-		y = t.y + FIRE_LOOKUP(t.o,O_Y);
-		wallcount = 0;
-		i = 0;
-
-		while (insideBounds(x,y) && !onTarget(player,x,y)) {
-			if (wallcount == 0 && incomingBullet(x,y,t.o)) {
-				return 0; //Bullet heading this way, FIRE!
-			}
-			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
-			i++;
-			x += O_LOOKUP(t.o,O_X);
-			y += O_LOOKUP(t.o,O_Y);
-		}
-		hitcost = INT_MAX-1;
-		if (onTarget(player,x,y)) {
-			//HIT!
-			hitcost = ((i/2)+wallcount+1);
-		}
-		if (isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) &&
-				clearablePath(t.x,t.y,t.o)) {
-			//Shoot to clear a space to move in
-			return min(hitcost,utility.expensivecost[tank_id][t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
-		} else {
-			//Just shoot
-			return hitcost;
-		}
-	case C_UP:
-	case C_DOWN:
-	case C_LEFT:
-	case C_RIGHT:
-		o = c-2;
-		if (isTankInsideBounds(t.x + O_LOOKUP(o,O_X),t.y + O_LOOKUP(o,O_Y)) &&
-				clearPath(t.x,t.y,o)) {
-			return utility.expensivecost[tank_id][t.x + O_LOOKUP(o,O_X)][t.y + O_LOOKUP(o,O_Y)][o];
-		} else {
-			return utility.expensivecost[tank_id][t.x][t.y][o];
-		}
-	default:
-	case C_NONE:
-		return INT_MAX;
-	}
-}
-#endif
 
 int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds)
 {
