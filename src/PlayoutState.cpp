@@ -1091,21 +1091,28 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
 	int besto;
 	if (isTankInFiringLine(tank_id,obstacles)) {
+#if DEBUGOBSTACLES
+		cout << "Tank [" << tank_id << "] needs to dodge!" << endl;
+#endif
 		besto = bestOCMDDodge(tank_id,obstacles,cmds);
+		cmd.first = C_NONE;
+		cmd.second = INT_MAX;
+		cmds.push_back(cmd);
 	} else {
 		besto = bestOCMD(t.x,t.y,costmatrix,cmds);
-	}
-	cmd.first = C_NONE;
-	cmd.second = costmatrix[t.x][t.y][t.o];
-	//One tank goes limp
-	if (enemy_tanks == 0 && friendly_tanks == 2) {
-		int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
-		int comrade_cost = abs(comrade.x-enemybase.x)+abs(comrade.y-enemybase.y);
-		if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
-			cmd.second = costmatrix[t.x][t.y][t.o]-2;
+		cmd.first = C_NONE;
+		cmd.second = costmatrix[t.x][t.y][t.o];
+		//One tank goes limp
+		if (enemy_tanks == 0 && friendly_tanks == 2) {
+			int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
+			int comrade_cost = abs(comrade.x-enemybase.x)+abs(comrade.y-enemybase.y);
+			if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
+				cmd.second = costmatrix[t.x][t.y][t.o]-2;
+			}
 		}
+		cmds.push_back(cmd);
+
 	}
-	cmds.push_back(cmd);
 
 	cmd.first = C_FIRE;
 	if (!t.canfire) {
