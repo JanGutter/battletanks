@@ -615,6 +615,22 @@ bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 	return clear;
 }
 
+bool PlayoutState::clearPath(int x, int y, int o)
+{
+	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
+	bool clear = true;
+	int i;
+	for (i = 0; clear && (i < 5); i++) {
+		clear = (board[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_WALL|B_TANK)) == 0;
+#if ASSERT
+		if (!insideBounds(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y))) {
+			//	cerr << "clearPath going OOB! x: " << x << " y: " << y << " min_y: " << min_y << endl;
+		}
+#endif
+	}
+	return clear;
+}
+
 bool PlayoutState::clearablePath(int x, int y, int o, board_t& obstacles)
 {
 	//NOT A SUBSTITUTE FOR OOB x+move, y+move!
@@ -692,8 +708,10 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 						//Tank can move from t to g: it needs to whack the wall
 						for (t.o = 0; t.o < 4; t.o++) {
 							if (t.o == g.o) {
+								//It's facing the wall
 								t.cost = g.cost+2; //Fire+Move
 							} else {
+								//It's not facing the wall
 								t.cost = g.cost+3; //Turn+Fire+Move
 							}
 							if (t.cost < costmatrix[t.x][t.y][t.o]) {
@@ -994,7 +1012,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 			}
 			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
 				//Shoot to clear a space to move in
-				cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]-1);
+				cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
 			} else {
 				//Just shoot
 				cmd.second = hitcost;
@@ -1158,7 +1176,11 @@ int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t
 	int o;
 	for (o = 0; o < 4; o++) {
 		o_score.first = o+C_UP;
-		o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
+		if (clearPath(x,y,o)) {
+			o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
+		} else {
+			o_score.second = costmatrix[x][y][o];
+		}
 		cmds.push_back(o_score);
 	}
 	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());

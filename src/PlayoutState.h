@@ -96,6 +96,7 @@ public:
 	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
 	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
 	bool clearPath(int x, int y, int o, board_t& obstacles);
+	bool clearPath(int x, int y, int o);
 	bool clearablePath(int x, int y, int o, board_t& obstacles);
 	bool clearablePath(int x, int y, int o);
 	bool insideTank(const unsigned int t, const int x, const int y);
