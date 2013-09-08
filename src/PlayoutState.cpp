@@ -21,6 +21,7 @@
 
 #define ASSERT 0
 #define DEBUG 0
+#define DEBUGOBSTACLES 1
 
 using namespace std;
 
@@ -825,6 +826,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 			memcpy(obstacles,board,sizeof(obstacles));
 			for (enemyid = (1-playerid*2); enemyid < ((1-playerid)*2+2); enemyid++) {
 				if (tank[enemyid].active) {
+					//TODO: Only nearby tanks get drawn.
 					drawTankObstacle(enemyid,obstacles);
 				}
 			}
@@ -849,24 +851,18 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 				}
 			}
 			//Path of bullets count as immovable obstacle
-			//Firing sights of tanks count as immovable obstacle
-			for (j = 2; j < 4; j++) {
-				if (bullet[j].active) {
+			for (j = 0; j < 4; j++) {
+				if (bullet[j].active && j != tankid) {
 					targetx = bullet[j].x;
 					targety = bullet[j].y;
 					deltax = O_LOOKUP(bullet[j].o,O_X);
 					deltay = O_LOOKUP(bullet[j].o,O_Y);
-				} else if (tank[j].active) {
-					targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
-					targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
-					deltax = O_LOOKUP(tank[j].o,O_X);
-					deltay = O_LOOKUP(tank[j].o,O_Y);
 				} else {
 					continue;
 				}
 				for (i = 0; i < 10; i++) {
-					if (isTankInsideBounds(targetx,targety)
-							&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o))) == 0) {
+					if (insideBounds(targetx,targety)
+							&& !(board[targetx][targety] & (B_WALL|B_OPPOSITE(bullet[j].o)))) {
 						obstacles[targetx][targety] = B_OOB;
 						targetx += deltax;
 						targety += deltay;
@@ -877,17 +873,49 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, board_t&
 				traveldistance[j] = i;
 			}
 
+			for (j = 0; j < 4; j++) {
+				if (j != tankid && tank[j].active && tank[j].canfire) {
+					for (o = 0; o < 4; o++) {
+						if (o == tank[j].o) {
+							traveldistance[j] = 10;
+						} else {
+							if (j == comradeid) {
+								continue;
+							}
+							traveldistance[j] = 8;
+						}
+						targetx = tank[j].x + FIRE_LOOKUP(o,O_X);
+						targety = tank[j].y + FIRE_LOOKUP(o,O_Y);
+						deltax = O_LOOKUP(o,O_X);
+						deltay = O_LOOKUP(o,O_Y);
+						for (i = 0; i < traveldistance[j]; i++) {
+							if (insideBounds(targetx,targety)
+									&& !(board[targetx][targety] & B_OPPOSITE(bullet[j].o))) {
+								if (board[targetx][targety] & B_WALL) {
+									i++;
+								}
+								obstacles[targetx][targety] = B_OOB;
+								targetx += deltax;
+								targety += deltay;
+							} else {
+								break;
+							}
+						}
+					}
+					traveldistance[j] = 10;
+				}
+			}
 			seedBase(1-playerid,frontier,obstacles);
-#if 0
+#if DEBUGOBSTACLES
 			cout << "Obstacles for tank " << tankid << endl;
 			cout << "=======================" << endl;
-			paintObstacles();
+			paintObstacles(obstacles);
 #endif
 			findPath(frontier,utility.expensivecost[tankid],obstacles);
 
 			if (tank[tankid].canfire) {
 				//Put down breadcrumbs to turn and fire for active defence
-				for (j = 2; j < 4; j++) {
+				for (j = (1-playerid); j < (1-playerid)*2+2; j++) {
 					if (bullet[j].active) {
 						targetx = bullet[j].x;
 						targety = bullet[j].y;
