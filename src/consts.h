@@ -34,6 +34,8 @@ struct Move {
 
 #define MCTS_CONF_MARGIN 2000.0
 
+#define TANK_PROXIMITY_WARNING 30
+
 #define PLAYER0 0
 #define PLAYER1 1
 
@@ -160,7 +162,7 @@ const int WEAKSPOT_LOOKUP_TABLE[5] = {
 
 #define WEAKSPOT_LOOKUP(i) WEAKSPOT_LOOKUP_TABLE[(i)]
 
-const int AVOIDANCE_MATRIX[5][5] = {
+const int AVOIDANCE_CANFIRE_MATRIX[5][5] = {
 	{1,2,0,2,1},
 	{2,3,0,3,2},
 	{0,0,0,0,0},
@@ -168,7 +170,7 @@ const int AVOIDANCE_MATRIX[5][5] = {
 	{1,2,0,1,2}
 };
 
-const int AVOID_FRIENDLY_MATRIX[5][5] = {
+const int AVOIDANCE_CANTFIRE_MATRIX[5][5] = {
 	{1,2,3,2,1},
 	{2,3,4,3,2},
 	{3,4,5,4,3},

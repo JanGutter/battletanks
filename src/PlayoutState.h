@@ -64,13 +64,13 @@ typedef board_t obstacles_t[4];
 //POD structure
 class PlayoutState {
 public:
+	board_t board;
 	int tickno;
 	int command[4]; //commands given to the tanks (index is the same as tank[4])
 	int tank_priority[4]; //order in which tanks should be moved
 	TankState tank[4]; //Tank 0-1 belongs to PLAYER0, Tank 2-3 belongs to PLAYER1
 	BulletState bullet[4]; //(index is the same as tank[4])
 	BaseState base[2]; //Base 0 belongs to PLAYER0, Base 1 belongs to PLAYER1
-	board_t board;
 	int min_x,min_y;
 	int max_x,max_y;
 	bool gameover;
@@ -97,6 +97,7 @@ public:
 	bool clearFireTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
 	bool clearBallisticTrajectory(int x, int y, int o, int t_x, int t_y, board_t& obstacles);
 	bool clearPath(int x, int y, int o, board_t& obstacles);
+	bool canMove(int x, int y, int o, board_t& obstacles);
 	bool clearPath(int x, int y, int o);
 	bool clearablePath(int x, int y, int o, board_t& obstacles);
 	bool clearablePath(int x, int y, int o);
@@ -121,7 +122,8 @@ public:
 	void save();
 	int bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
 	int bestOCMD(int x, int y, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds);
-	int bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds);
+	int bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t& cmds);
+	int bestOCMDDodgeCantfire(int t, board_t& obstacles, scored_cmds_t& cmds);
 	int bestO(int x, int y, costmatrix_t& costmatrix);
 	//int cmdToSimpleUtility(int c, int t);
 	int bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cmds);

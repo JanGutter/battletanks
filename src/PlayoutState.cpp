@@ -600,6 +600,22 @@ bool PlayoutState::clearBallisticTrajectory(int x, int y, int o, int t_x, int t_
 	return clear;
 }
 
+bool PlayoutState::canMove(int x, int y, int o, board_t& obstacles)
+//Check for any obstacles
+{
+	bool clear = insideBounds(x+MOVEPATH_LOOKUP(o,2,O_X),y+MOVEPATH_LOOKUP(o,2,O_Y));
+	int i;
+	for (i = 0; clear && (i < 5); i++) {
+		clear = !(obstacles[x+MOVEPATH_LOOKUP(o,i,O_X)][y+MOVEPATH_LOOKUP(o,i,O_Y)] & (B_OOB|B_WALL|B_TANK));
+#if ASSERT
+		if (!insideBounds(x+MOVEPATH_LOOKUP(o,i,O_X),y+MOVEPATH_LOOKUP(o,i,O_Y))) {
+			//	cerr << "clearPath going OOB! x: " << x << " y: " << y << " min_y: " << min_y << endl;
+		}
+#endif
+	}
+	return clear;
+}
+
 bool PlayoutState::clearPath(int x, int y, int o, board_t& obstacles)
 //Check for OOB obstacles
 {
@@ -698,7 +714,7 @@ void PlayoutState::findPath(priority_queue<Tank>& frontier, costmatrix_t& costma
 			t.x = g.x - O_LOOKUP(g.o,O_X);
 			t.y = g.y - O_LOOKUP(g.o,O_Y);
 			if (isTankInsideBounds(t.x,t.y)) {
-				if (clearPath(t.x,t.y,g.o,obstacles)) {
+				if (canMove(t.x,t.y,g.o,obstacles)) {
 					//Tank can move from t to g: no obstacles.
 					t.cost = g.cost+1; //Move
 					for (t.o = 0; t.o < 4; t.o++) {
@@ -826,8 +842,11 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 			memcpy(obstacles[tankid],board,sizeof(board_t));
 			for (enemyid = (1-playerid)*2; enemyid < ((1-playerid)*2+2); enemyid++) {
 				if (tank[enemyid].active) {
-					//TODO: Only nearby tanks get drawn.
-					drawTankObstacle(enemyid,obstacles[tankid]);
+					if (abs(tank[enemyid].x - tank[tankid].x)
+							+ abs(tank[enemyid].y - tank[tankid].y) < TANK_PROXIMITY_WARNING) {
+						//TODO: Only nearby tanks get drawn.
+						drawTankObstacle(enemyid,obstacles[tankid]);
+					}
 				}
 			}
 			comradeid = tankid^1;
@@ -874,7 +893,9 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 			}
 
 			for (j = 0; j < 4; j++) {
-				if (j != tankid && tank[j].active && tank[j].canfire) {
+				if (j != tankid && tank[j].active && tank[j].canfire
+						&& (abs(tank[j].x - tank[tankid].x)
+								+ abs(tank[j].y - tank[tankid].y) < TANK_PROXIMITY_WARNING)) {
 					for (o = 0; o < 4; o++) {
 						if (o == tank[j].o) {
 							traveldistance[j] = 10;
@@ -916,13 +937,15 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 			if (tank[tankid].canfire) {
 				//Put down breadcrumbs to turn and fire for active defence
 				for (j = (1-playerid); j < (1-playerid)*2+2; j++) {
+
 					if (bullet[j].active) {
 						targetx = bullet[j].x;
 						targety = bullet[j].y;
 						deltax = O_LOOKUP(bullet[j].o,O_X);
 						deltay = O_LOOKUP(bullet[j].o,O_Y);
 						o = bullet[j].o;
-					} else if (tank[j].active) {
+					} else if (tank[j].active && (abs(tank[j].x - tank[tankid].x)
+							+ abs(tank[j].y - tank[tankid].y) < TANK_PROXIMITY_WARNING)) {
 						targetx = tank[j].x + FIRE_LOOKUP(tank[j].o,O_X);
 						targety = tank[j].y + FIRE_LOOKUP(tank[j].o,O_Y);
 						deltax = O_LOOKUP(tank[j].o,O_X);
@@ -931,7 +954,7 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 					} else {
 						continue;
 					}
-					for (i = 0; i < traveldistance[j]+12; i++) {
+					for (i = 0; i < 24; i++) {
 						if (isTankInsideBounds(targetx,targety)
 								&& (board[targetx][targety] & (B_WALL|B_OPPOSITE(o))) == 0) {
 							utility.expensivecost[tankid][targetx][targety][O_OPPOSITE(o)] = (i/2)+1;
@@ -1034,6 +1057,7 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
 		i = 0;
+		cmd.second = INT_MAX-1;
 		while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
 			//TODO: switch to map lookup?
 			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
@@ -1096,7 +1120,11 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 #if DEBUGOBSTACLES
 		cout << "Tank [" << tank_id << "] needs to dodge!" << endl;
 #endif
-		besto = bestOCMDDodge(tank_id,obstacles,cmds);
+		if (tank[tank_id].canfire) {
+			besto = bestOCMDDodgeCanfire(tank_id,obstacles,cmds);
+		} else {
+			besto = bestOCMDDodgeCantfire(tank_id,obstacles,cmds);
+		}
 		cmd.first = C_NONE;
 		cmd.second = INT_MAX;
 		cmds.push_back(cmd);
@@ -1124,6 +1152,7 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 		y = t.y + FIRE_LOOKUP(t.o,O_Y);
 		wallcount = 0;
 		i = 0;
+		cmd.second = INT_MAX-1;
 		while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
 			//TODO: switch to map lookup?
 			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
@@ -1194,7 +1223,7 @@ int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, board_t& obst
 	return cmds[0].first;
 }
 
-int PlayoutState::bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds)
+int PlayoutState::bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t& cmds)
 {
 	scored_cmd_t o_score;
 	int o,i,j,x,y,ai,aj;
@@ -1206,7 +1235,31 @@ int PlayoutState::bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds)
 			o_score.second = 0;
 			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
 				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					o_score.second += obstacles[i][j]*AVOIDANCE_MATRIX[ai][aj];
+					o_score.second += obstacles[i][j]*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
+				}
+			}
+		} else {
+			o_score.second = INT_MAX;
+		}
+		cmds.push_back(o_score);
+	}
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
+}
+
+int PlayoutState::bestOCMDDodgeCantfire(int t, board_t& obstacles, scored_cmds_t& cmds)
+{
+	scored_cmd_t o_score;
+	int o,i,j,x,y,ai,aj;
+	for (o = 0; o < 4; o++) {
+		x = tank[t].x + O_LOOKUP(o,O_X);
+		y = tank[t].y + O_LOOKUP(o,O_Y);
+		o_score.first = o+C_UP;
+		if (isTankInsideBounds(x,y)) {
+			o_score.second = 0;
+			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
+				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
+					o_score.second += obstacles[i][j]*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
 				}
 			}
 		} else {

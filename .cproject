@@ -27,7 +27,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/battletanks/src/include}&quot;"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.debugging.other.1521383983" name="Other debugging flags" superClass="gnu.cpp.compiler.option.debugging.other" value="-fstack-usage" valueType="string"/>
-								<option id="gnu.cpp.compiler.option.debugging.gprof.1272907431" name="Generate gprof information (-pg)" superClass="gnu.cpp.compiler.option.debugging.gprof" value="true" valueType="boolean"/>
+								<option id="gnu.cpp.compiler.option.debugging.gprof.1272907431" name="Generate gprof information (-pg)" superClass="gnu.cpp.compiler.option.debugging.gprof" value="false" valueType="boolean"/>
 								<option id="gnu.cpp.compiler.option.debugging.prof.234081057" name="Generate prof information (-p)" superClass="gnu.cpp.compiler.option.debugging.prof" value="false" valueType="boolean"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1978726610" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
@@ -45,8 +45,8 @@
 									<listOptionValue builtIn="false" srcPrefixMapping="" srcRootPath="" value="pthread"/>
 									<listOptionValue builtIn="false" srcPrefixMapping="" srcRootPath="" value="m"/>
 								</option>
-								<option id="gnu.cpp.link.option.debugging.gprof.1345868705" name="Generate gprof information (-pg)" superClass="gnu.cpp.link.option.debugging.gprof" value="true" valueType="boolean"/>
-								<option id="gnu.cpp.link.option.flags.608052128" superClass="gnu.cpp.link.option.flags" value="-pg" valueType="string"/>
+								<option id="gnu.cpp.link.option.debugging.gprof.1345868705" name="Generate gprof information (-pg)" superClass="gnu.cpp.link.option.debugging.gprof" value="false" valueType="boolean"/>
+								<option id="gnu.cpp.link.option.flags.608052128" name="Linker flags" superClass="gnu.cpp.link.option.flags" value="" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.597129153" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -149,10 +149,10 @@
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.1401681909;cdt.managedbuild.config.gnu.exe.release.1401681909.;cdt.managedbuild.tool.gnu.cpp.compiler.exe.release.1007913459;cdt.managedbuild.tool.gnu.cpp.compiler.input.190154659">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.1401681909;cdt.managedbuild.config.gnu.exe.release.1401681909.;cdt.managedbuild.tool.gnu.c.compiler.exe.release.893994421;cdt.managedbuild.tool.gnu.c.compiler.input.1687506190">
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.895691097;cdt.managedbuild.config.gnu.exe.debug.895691097.;cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.23656121;cdt.managedbuild.tool.gnu.cpp.compiler.input.1978726610">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.895691097;cdt.managedbuild.config.gnu.exe.debug.895691097.;cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.23656121;cdt.managedbuild.tool.gnu.cpp.compiler.input.1978726610">
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.release.1401681909;cdt.managedbuild.config.gnu.exe.release.1401681909.;cdt.managedbuild.tool.gnu.c.compiler.exe.release.893994421;cdt.managedbuild.tool.gnu.c.compiler.input.1687506190">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.exe.debug.895691097;cdt.managedbuild.config.gnu.exe.debug.895691097.;cdt.managedbuild.tool.gnu.c.compiler.exe.debug.2036749787;cdt.managedbuild.tool.gnu.c.compiler.input.1119249650">
