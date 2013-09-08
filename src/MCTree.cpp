@@ -382,7 +382,7 @@ void MCTree::expand_some(unsigned char width, tree_size_t node_id, PlayoutState*
 			if (node_state->tank[i].active) {
 				//Get the cost of the moves
 				if (node_id == root_id) {
-					node_state->bestC(i,root_u->expensivecost[i],cmds);
+					node_state->bestCExpensive(i,root_u->expensivecost[i],root_obstacles[i],cmds);
 				} else {
 					node_state->bestC(i,root_u->simplecost[i/2],cmds);
 				}

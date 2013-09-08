@@ -108,6 +108,7 @@ public:
 	bool onFriendly(const int t, const int x, const int y);
 	bool incomingBullet(const int x, const int y, const int o);
 	bool isTankAt(const int t, const int x, const int y);
+	bool isTankInFiringLine(const int t, board_t& obstacles);
 	void drawTank(const int t, const int block);
 	void drawTankObstacle(const int t, board_t& obstacles);
 	void drawTankObstacle(const int x, const int y, board_t& obstacles);
@@ -119,9 +120,11 @@ public:
 	bool lineOfSight(const int sx, const int sy, const int o, const int tx, const int ty);
 	void save();
 	int bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	int bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds);
 	int bestO(int x, int y, costmatrix_t& costmatrix);
 	//int cmdToSimpleUtility(int c, int t);
 	int bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cmds);
+	int bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds);
 	//int cmdToExpensiveUtility(int c, int t);
 	//friend ostream &operator<<(ostream &output, const PlayoutState &p);
 	//friend istream &operator>>(istream  &input, PlayoutState &p);

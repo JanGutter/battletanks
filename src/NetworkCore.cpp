@@ -689,7 +689,7 @@ void NetworkCore::play()
 					if (state->tank[tankid].active) {
 						scored_cmds_t cmds;
 						cout << "--Greedy policy---" << endl;
-						int bestcmd = mc_tree->root_state->bestC(tankid,mc_tree->root_u->expensivecost[tankid],cmds);
+						int bestcmd = mc_tree->root_state->bestCExpensive(tankid,mc_tree->root_u->expensivecost[tankid],mc_tree->root_obstacles[tankid],cmds);
 #if DEBUG
 						cout << "Costs [" << tankid << "]:";
 						for (int c = 0; c < 6; c++) {

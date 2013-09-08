@@ -1063,6 +1063,89 @@ int PlayoutState::bestC(int tank_id, costmatrix_t& costmatrix, scored_cmds_t& cm
 	return cmds[0].first;
 }
 
+bool PlayoutState::isTankInFiringLine(const int t, board_t& obstacles)
+{
+	bool hit = false;
+	int i,j;
+	for (i = tank[t].x-2; !hit && i < tank[t].x+3;i++) {
+		for (j = tank[t].y-2; !hit && j < tank[t].y+3;j++) {
+			hit = obstacles[i][j] & B_OOB;
+		}
+	}
+	return hit;
+}
+
+int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds)
+{
+	scored_cmd_t cmd;
+	int i;
+	int wallcount;
+	int hitcost;
+	int x,y;
+	int player = tank_id/2;
+	TankState& t = tank[tank_id];
+	TankState& comrade = tank[tank_id^1];
+	BaseState& enemybase = base[1-player];
+	int playerid = tank_id/2;
+	int friendly_tanks = t.active+comrade.active;
+	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
+	int besto;
+	if (isTankInFiringLine(tank_id,obstacles)) {
+		besto = bestOCMDDodge(tank_id,obstacles,cmds);
+	} else {
+		besto = bestOCMD(t.x,t.y,costmatrix,cmds);
+	}
+	cmd.first = C_NONE;
+	cmd.second = costmatrix[t.x][t.y][t.o];
+	//One tank goes limp
+	if (enemy_tanks == 0 && friendly_tanks == 2) {
+		int tank_cost = abs(t.x-enemybase.x)+abs(t.y-enemybase.y);
+		int comrade_cost = abs(comrade.x-enemybase.x)+abs(comrade.y-enemybase.y);
+		if ((tank_cost > comrade_cost) || (tank_cost == comrade_cost && (tank_id & 1) == 1)) {
+			cmd.second = costmatrix[t.x][t.y][t.o]-2;
+		}
+	}
+	cmds.push_back(cmd);
+
+	cmd.first = C_FIRE;
+	if (!t.canfire) {
+		cmd.second = INT_MAX;
+	} else {
+		x = t.x + FIRE_LOOKUP(t.o,O_X);
+		y = t.y + FIRE_LOOKUP(t.o,O_Y);
+		wallcount = 0;
+		i = 0;
+		while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
+			//TODO: switch to map lookup?
+			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
+				cmd.second = 0;
+				break;
+			}
+			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
+			i++;
+			x += O_LOOKUP(t.o,O_X);
+			y += O_LOOKUP(t.o,O_Y);
+		}
+		if (cmd.second) {
+			hitcost = INT_MAX-1;
+			if (onTarget(player,x,y)) {
+				//HIT!
+				hitcost = ((i/2)+wallcount+1);
+			}
+			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
+				//Shoot to clear a space to move in
+				cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
+			} else {
+				//Just shoot
+				cmd.second = hitcost;
+			}
+		}
+	}
+	cmds.push_back(cmd);
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
+}
+
 int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t& cmds)
 {
 	scored_cmd_t o_score;
@@ -1073,6 +1156,30 @@ int PlayoutState::bestOCMD(int x, int y, costmatrix_t& costmatrix, scored_cmds_t
 			o_score.second = costmatrix[x + O_LOOKUP(o,O_X)][y + O_LOOKUP(o,O_Y)][o];
 		} else {
 			o_score.second = costmatrix[x][y][o];
+		}
+		cmds.push_back(o_score);
+	}
+	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
+	return cmds[0].first;
+}
+
+int PlayoutState::bestOCMDDodge(int t, board_t& obstacles, scored_cmds_t& cmds)
+{
+	scored_cmd_t o_score;
+	int o,i,j,x,y,ai,aj;
+	for (o = 0; o < 4; o++) {
+		x = tank[t].x + O_LOOKUP(o,O_X);
+		y = tank[t].y + O_LOOKUP(o,O_Y);
+		o_score.first = o+C_UP;
+		if (isTankInsideBounds(x,y)) {
+			o_score.second = 0;
+			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
+				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
+					o_score.second += obstacles[i][j]*AVOIDANCE_MATRIX[ai][aj];
+				}
+			}
+		} else {
+			o_score.second = INT_MAX;
 		}
 		cmds.push_back(o_score);
 	}
