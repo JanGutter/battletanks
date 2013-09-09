@@ -21,7 +21,7 @@
 
 #define ASSERT 0
 #define DEBUG 0
-#define DEBUGOBSTACLES 1
+#define DEBUGOBSTACLES 0
 
 using namespace std;
 
@@ -894,34 +894,26 @@ void PlayoutState::updateExpensiveUtilityScores(UtilityScores& utility, obstacle
 			}
 
 			for (j = 0; j < 4; j++) {
-				if (j != tankid && tank[j].active && tank[j].canfire
+				if (j != tankid && j != comradeid && tank[j].active && tank[j].canfire
 						&& (abs(tank[j].x - tank[tankid].x)
 								+ abs(tank[j].y - tank[tankid].y) < TANK_PROXIMITY_WARNING)) {
-					for (o = 0; o < 4; o++) {
-						if (o == tank[j].o) {
-							traveldistance[j] = 10;
+					o = tank[j].o;
+					traveldistance[j] = 10;
+					targetx = tank[j].x + FIRE_LOOKUP(o,O_X);
+					targety = tank[j].y + FIRE_LOOKUP(o,O_Y);
+					deltax = O_LOOKUP(o,O_X);
+					deltay = O_LOOKUP(o,O_Y);
+					for (i = 0; i < traveldistance[j]; i++) {
+						if (insideBounds(targetx,targety)
+								&& !(board[targetx][targety] & B_OPPOSITE(bullet[j].o))) {
+							if (board[targetx][targety] & B_WALL) {
+								i*=2;
+							}
+							obstacles[tankid][targetx][targety] = B_OOB;
+							targetx += deltax;
+							targety += deltay;
 						} else {
-							if (j == comradeid) {
-								continue;
-							}
-							traveldistance[j] = 8;
-						}
-						targetx = tank[j].x + FIRE_LOOKUP(o,O_X);
-						targety = tank[j].y + FIRE_LOOKUP(o,O_Y);
-						deltax = O_LOOKUP(o,O_X);
-						deltay = O_LOOKUP(o,O_Y);
-						for (i = 0; i < traveldistance[j]; i++) {
-							if (insideBounds(targetx,targety)
-									&& !(board[targetx][targety] & B_OPPOSITE(bullet[j].o))) {
-								if (board[targetx][targety] & B_WALL) {
-									i*=2;
-								}
-								obstacles[tankid][targetx][targety] = B_OOB;
-								targetx += deltax;
-								targety += deltay;
-							} else {
-								break;
-							}
+							break;
 						}
 					}
 					traveldistance[j] = 10;
@@ -1244,33 +1236,35 @@ int PlayoutState::bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t&
 		x = tank[t].x + O_LOOKUP(o,O_X);
 		y = tank[t].y + O_LOOKUP(o,O_Y);
 		o_score.first = o+C_UP;
-		if (isTankInsideBounds(x,y) && (clearPath(x,y,o) || clearablePath(x,y,o))) {
-			o_score.second = 0;
-			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
-				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					o_score.second += (obstacles[i][j] & (B_WALL|B_OOB))*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
-				}
-			}
-			if (o_score.second == 0) {
-				range = 0;
-				//It's either the wrong way or the right way!
-				bx = tank[t].x + 3*O_LOOKUP(o,O_X);
-				by = tank[t].y + 3*O_LOOKUP(o,O_X);
-				while(insideBounds(bx,by)) {
-					if ((board[bx][by] & B_OPPOSITE(o)) || onTarget(t/2,bx,by)) {
-						break;
-					}
-					range++;
-					bx += O_LOOKUP(o,O_X);
-					by += O_LOOKUP(o,O_Y);
-				}
-				if (!insideBounds(bx,by)) {
-					o_score.second = range;
-				}
-			}
-		} else {
-			o_score.second = INT_MAX;
+		if (!isTankInsideBounds(x,y) || !(clearPath(x,y,o) || clearablePath(x,y,o))) {
+			//We can only rotate
+			x = tank[t].x;
+			y = tank[t].y;
 		}
+		o_score.second = 0;
+		for (i = x-2, ai = 0; ai < 5; i++, ai++) {
+			for (j = y-2, aj = 0; aj < 5; j++, aj++) {
+				o_score.second += (obstacles[i][j] & (B_WALL|B_OOB))*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
+			}
+		}
+		if (o_score.second == 0) {
+			range = 0;
+			//It's either the wrong way or the right way!
+			bx = tank[t].x + 3*O_LOOKUP(o,O_X);
+			by = tank[t].y + 3*O_LOOKUP(o,O_X);
+			while(insideBounds(bx,by)) {
+				if ((board[bx][by] & B_OPPOSITE(o)) || onTarget(t/2,bx,by)) {
+					break;
+				}
+				range++;
+				bx += O_LOOKUP(o,O_X);
+				by += O_LOOKUP(o,O_Y);
+			}
+			if (!insideBounds(bx,by)) {
+				o_score.second = range;
+			}
+		}
+
 		cmds.push_back(o_score);
 	}
 	sort(cmds.begin(), cmds.end(), sort_pair_second<int, int>());
@@ -1285,17 +1279,18 @@ int PlayoutState::bestOCMDDodgeCantfire(int t, board_t& obstacles, scored_cmds_t
 		x = tank[t].x + O_LOOKUP(o,O_X);
 		y = tank[t].y + O_LOOKUP(o,O_Y);
 		o_score.first = o+C_UP;
-		if (isTankInsideBounds(x,y) && clearPath(x,y,o)) {
-			o_score.second = 0;
-			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
-				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					if (obstacles[i][j] & (B_WALL|B_OOB)) {
-						o_score.second += B_OOB*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
-					}
+		if (!isTankInsideBounds(x,y) || !clearPath(x,y,o)) {
+			//We can only rotate.
+			x = tank[t].x;
+			y = tank[t].y;
+		}
+		o_score.second = 0;
+		for (i = x-2, ai = 0; ai < 5; i++, ai++) {
+			for (j = y-2, aj = 0; aj < 5; j++, aj++) {
+				if (obstacles[i][j] & (B_WALL|B_OOB)) {
+					o_score.second += B_OOB*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
 				}
 			}
-		} else {
-			o_score.second = INT_MAX;
 		}
 		cmds.push_back(o_score);
 	}

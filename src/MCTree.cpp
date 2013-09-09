@@ -19,7 +19,7 @@
 #include <iomanip>
 #include <fstream>
 
-#define DEBUG 1
+#define DEBUG 0
 #define ASSERT 0
 
 inline double UCB1T_score_alpha(unsigned long int t_, double r_, double sigma_, double t)
@@ -618,6 +618,8 @@ void MCTree::backprop(vector<Move>& path,vector<double>& result)
 unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 {
 	unsigned int alpha,beta;
+	unsigned long int maxcount;
+	maxcount = 0;
 
 	double confidence[36][36];
 
@@ -625,7 +627,20 @@ unsigned int MCTree::best_alpha(unsigned int greedyalpha)
 		for (beta = 0; beta < 36; beta++) {
 			tree_size_t& child_id = tree[root_id].child[alpha][beta];
 			if (tree[child_id].terminal) {
-				confidence[alpha][beta] = (tree[child_id].r.mean() - 0.5) * TERMINAL_BONUS;
+				continue;
+			}
+			if (child_explored(child_id) && tree[child_id].r.count() > 30 ) {
+				maxcount = max(tree[child_id].r.count(),maxcount);
+			} else {
+				confidence[alpha][beta] = 0.0;
+			}
+		}
+	}
+	for (alpha = 0; alpha < 36; alpha++) {
+		for (beta = 0; beta < 36; beta++) {
+			tree_size_t& child_id = tree[root_id].child[alpha][beta];
+			if (tree[child_id].terminal) {
+				confidence[alpha][beta] = (tree[child_id].r.mean() - 0.5) * maxcount*2;
 				continue;
 			}
 			if (child_explored(child_id) && tree[child_id].r.count() > 30 ) {

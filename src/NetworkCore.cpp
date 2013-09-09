@@ -19,7 +19,7 @@
 #include "MCTree.h"
 #include <fstream>
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define NUMC 2
 #define NUMPLAYERS 2
@@ -135,6 +135,9 @@ void NetworkCore::login() {
 		soaperr = s.login(&login_req, &login_resp);
 		if (soaperr == SOAP_OK) {
 			state->endgame_tick = login_resp.return_->endGamePoint;
+			if (state->endgame_tick < 1) {
+				state->endgame_tick = 200;
+			}
 #if DEBUG
 			cout << "Endgame starts at: " << state->endgame_tick << endl;
 #endif
@@ -199,8 +202,8 @@ void NetworkCore::play()
 	int i,j;
 	long long int nexttick;
 	long int lasttick = 0;
-	int safety_margin = 500; // send message 200ms before end of tick.
-	int settle_time = 500; // only poll getStatus 200ms after the beginning of the tick.
+	int safety_margin = 500; // send message 500ms before end of tick.
+	int settle_time = 500; // only poll getStatus 500ms after the beginning of the tick.
 	bool repeated_tick;
 	bool skipped_tick;
 	MCTree* mc_tree = new MCTree;
