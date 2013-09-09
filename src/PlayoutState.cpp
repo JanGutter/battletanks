@@ -1105,6 +1105,7 @@ bool PlayoutState::isTankInFiringLine(const int t, board_t& obstacles)
 int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t& obstacles, scored_cmds_t& cmds)
 {
 	scored_cmd_t cmd;
+	bool dodge;
 	int i;
 	int wallcount;
 	int hitcost;
@@ -1117,10 +1118,13 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 	int friendly_tanks = t.active+comrade.active;
 	int enemy_tanks = tank[(1-playerid)*2].active+tank[(1-playerid)*2+1].active;
 	int besto;
+	dodge = false;
 	if (isTankInFiringLine(tank_id,obstacles)) {
 #if DEBUGOBSTACLES
-		cout << "Tank [" << tank_id << "] needs to dodge!" << endl;
+		cout << "Tank [" << tank_id << "] needs to dodge! Using the following obstacles:" << endl;
+		paintObstacles(obstacles);
 #endif
+		dodge = true;
 		if (tank[tank_id].canfire) {
 			besto = bestOCMDDodgeCanfire(tank_id,obstacles,cmds);
 		} else {
@@ -1149,34 +1153,42 @@ int PlayoutState::bestCExpensive(int tank_id, costmatrix_t& costmatrix, board_t&
 	if (!t.canfire) {
 		cmd.second = INT_MAX;
 	} else {
-		x = t.x + FIRE_LOOKUP(t.o,O_X);
-		y = t.y + FIRE_LOOKUP(t.o,O_Y);
-		wallcount = 0;
-		i = 0;
-		cmd.second = INT_MAX-1;
-		while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
-			//TODO: switch to map lookup?
-			if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
-				cmd.second = 0;
-				break;
+		if (!dodge) {
+			x = t.x + FIRE_LOOKUP(t.o,O_X);
+			y = t.y + FIRE_LOOKUP(t.o,O_Y);
+			wallcount = 0;
+			i = 0;
+			cmd.second = INT_MAX-1;
+			while (insideBounds(x,y) && !onTarget(player,x,y) && !onFriendly(player,x,y)) {
+				//TODO: switch to map lookup?
+				if (wallcount == 0 && (board[x][y] & B_OPPOSITE(t.o))) {
+					cmd.second = 0;
+					break;
+				}
+				wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
+				i++;
+				x += O_LOOKUP(t.o,O_X);
+				y += O_LOOKUP(t.o,O_Y);
 			}
-			wallcount += (board[x][y] & B_WALL)*((i/2) + 1);
-			i++;
-			x += O_LOOKUP(t.o,O_X);
-			y += O_LOOKUP(t.o,O_Y);
-		}
-		if (cmd.second) {
-			hitcost = INT_MAX-1;
-			if (onTarget(player,x,y)) {
-				//HIT!
-				hitcost = ((i/2)+wallcount);
+			if (cmd.second) {
+				hitcost = INT_MAX-1;
+				if (onTarget(player,x,y)) {
+					//HIT!
+					hitcost = ((i/2)+wallcount);
+				}
+				if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
+					//Shoot to clear a space to move in
+					cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
+				} else {
+					//Just shoot
+					cmd.second = hitcost;
+				}
 			}
+		} else {
 			if ((t.o == besto-C_UP) && isTankInsideBounds(t.x + O_LOOKUP(t.o,O_X),t.y + O_LOOKUP(t.o,O_Y)) && clearablePath(t.x,t.y,t.o) ) {
-				//Shoot to clear a space to move in
-				cmd.second = min(hitcost,costmatrix[t.x + O_LOOKUP(t.o,O_X)][t.y + O_LOOKUP(t.o,O_Y)][t.o]);
+				cmd.second = 0; //Need to clear a space for dodging
 			} else {
-				//Just shoot
-				cmd.second = hitcost;
+				cmd.second = INT_MAX; //We're not taking potshots if we're being shot at.
 			}
 		}
 	}
@@ -1232,11 +1244,11 @@ int PlayoutState::bestOCMDDodgeCanfire(int t, board_t& obstacles, scored_cmds_t&
 		x = tank[t].x + O_LOOKUP(o,O_X);
 		y = tank[t].y + O_LOOKUP(o,O_Y);
 		o_score.first = o+C_UP;
-		if (isTankInsideBounds(x,y)) {
+		if (isTankInsideBounds(x,y) && (clearPath(x,y,o) || clearablePath(x,y,o))) {
 			o_score.second = 0;
 			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
 				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					o_score.second += obstacles[i][j]*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
+					o_score.second += (obstacles[i][j] & (B_WALL|B_OOB))*AVOIDANCE_CANFIRE_MATRIX[ai][aj];
 				}
 			}
 			if (o_score.second == 0) {
@@ -1273,11 +1285,11 @@ int PlayoutState::bestOCMDDodgeCantfire(int t, board_t& obstacles, scored_cmds_t
 		x = tank[t].x + O_LOOKUP(o,O_X);
 		y = tank[t].y + O_LOOKUP(o,O_Y);
 		o_score.first = o+C_UP;
-		if (isTankInsideBounds(x,y)) {
+		if (isTankInsideBounds(x,y) && clearPath(x,y,o)) {
 			o_score.second = 0;
 			for (i = x-2, ai = 0; ai < 5; i++, ai++) {
 				for (j = y-2, aj = 0; aj < 5; j++, aj++) {
-					if (obstacles[i][j]) {
+					if (obstacles[i][j] & (B_WALL|B_OOB)) {
 						o_score.second += B_OOB*AVOIDANCE_CANTFIRE_MATRIX[ai][aj];
 					}
 				}
