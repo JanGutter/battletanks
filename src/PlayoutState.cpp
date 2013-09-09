@@ -1088,7 +1088,7 @@ bool PlayoutState::isTankInFiringLine(const int t, board_t& obstacles)
 	int i,j;
 	for (i = tank[t].x-2; !hit && i < tank[t].x+3;i++) {
 		for (j = tank[t].y-2; !hit && j < tank[t].y+3;j++) {
-			hit = obstacles[i][j] & B_OOB;
+			hit = (obstacles[i][j] & B_OOB) != 0;
 		}
 	}
 	return hit;
