@@ -273,6 +273,35 @@ void PlayoutState::checkCollisions()
 		}
 	}
 
+	for (j = 0; j < 2; j++) {
+		baseok[j] = true;
+		for (i = 0; i < 4; i++) {
+			if (insideTank(i,base[j].x,base[j].y)) {
+				baseok[j] = false;
+			}
+		}
+	}
+
+	if (!baseok[PLAYER0] && !baseok[PLAYER1]) {
+		winner = W_DRAW;
+		gameover = true;
+		state_score = winner;
+		stop_playout = true;
+		return;
+	} else if (baseok[PLAYER0] && !baseok[PLAYER1]) {
+		winner = W_PLAYER0;
+		gameover = true;
+		state_score = winner;
+		stop_playout = true;
+		return;
+	} else if (baseok[PLAYER1] && !baseok[PLAYER0]) {
+		winner = W_PLAYER1;
+		gameover = true;
+		state_score = winner;
+		stop_playout = true;
+		return;
+	}
+
 	for (i = 0; i < 4; i++) {
 		if (bullet[i].active) {
 			prevsquare = board[bullet[i].x - O_LOOKUP(bullet[i].o,O_X)][bullet[i].y - O_LOOKUP(bullet[i].o,O_Y)];
