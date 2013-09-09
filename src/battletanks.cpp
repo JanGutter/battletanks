@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 	if (mode == MODE_SOAP) {
 		cout << "Network Play using SOAP: [" << soap_endpoint << "]" << endl;
 		NetworkCore* netcore = new NetworkCore(soap_endpoint);
-		netcore->policy = POLICY_MCTS;
+		netcore->policy = POLICY_GREEDY;
 		netcore->login();
 		netcore->play();
 		delete netcore;
