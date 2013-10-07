@@ -60,10 +60,18 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1351673098" name="bt.vcxproj" rcbsApplicability="disable" resourcePath="src/bt.vcxproj" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.158363138" name="README.txt" rcbsApplicability="disable" resourcePath="src/README.txt" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1417664229" name="bt.vcxproj.filters" rcbsApplicability="disable" resourcePath="src/bt.vcxproj.filters" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1346954534" name="bt.vcxproj.user" rcbsApplicability="disable" resourcePath="src/bt.vcxproj.user" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.990360224" name="start.bat" rcbsApplicability="disable" resourcePath="src/start.bat" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1084808398" name="board1.map" rcbsApplicability="disable" resourcePath="src/board1.map" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.503222121" name="COPYING.txt" rcbsApplicability="disable" resourcePath="src/COPYING.txt" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1377535589" name="compile.bat" rcbsApplicability="disable" resourcePath="src/compile.bat" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.1131243619" name="SFMT-sse2.h" rcbsApplicability="disable" resourcePath="src/include/SFMT-sse2.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.895691097.389998278" name="SFMT-alti.h" rcbsApplicability="disable" resourcePath="src/include/SFMT-alti.h" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry excluding="include/SFMT-sse2.h|include/SFMT-alti.h|include/winstl" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="start.bat|README.txt|COPYING.txt|compile.bat|bt.vcxproj.user|bt.vcxproj.filters|bt.vcxproj|board1.map|include/SFMT-sse2.h|include/SFMT-alti.h|include/winstl" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -125,10 +133,18 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.2011936476" name="bt.vcxproj" rcbsApplicability="disable" resourcePath="src/bt.vcxproj" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.486067296" name="README.txt" rcbsApplicability="disable" resourcePath="src/README.txt" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.329024847" name="bt.vcxproj.filters" rcbsApplicability="disable" resourcePath="src/bt.vcxproj.filters" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.1674613866" name="bt.vcxproj.user" rcbsApplicability="disable" resourcePath="src/bt.vcxproj.user" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.1927308269" name="start.bat" rcbsApplicability="disable" resourcePath="src/start.bat" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.632910858" name="board1.map" rcbsApplicability="disable" resourcePath="src/board1.map" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.1581253728" name="COPYING.txt" rcbsApplicability="disable" resourcePath="src/COPYING.txt" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.1523702417" name="compile.bat" rcbsApplicability="disable" resourcePath="src/compile.bat" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.352391100" name="SFMT-sse2.h" rcbsApplicability="disable" resourcePath="src/include/SFMT-sse2.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.config.gnu.exe.release.1401681909.547287933" name="SFMT-alti.h" rcbsApplicability="disable" resourcePath="src/include/SFMT-alti.h" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry excluding="include/SFMT-sse2.h|include/SFMT-alti.h|include/winstl|lib/boost/thread/pthread/once_atomic.cpp|lib/boost/thread/win32" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="start.bat|README.txt|COPYING.txt|compile.bat|bt.vcxproj.user|bt.vcxproj.filters|bt.vcxproj|board1.map|include/SFMT-sse2.h|include/SFMT-alti.h|include/winstl|lib/boost/thread/pthread/once_atomic.cpp|lib/boost/thread/win32" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
