@@ -1,9 +1,13 @@
-/*
- * consts.h
- *
- *  Created on: 29 Jul 2013
- *      Author: Jan Gutter
- */
+//============================================================================
+// Name        : consts.h
+// Author      : Jan Gutter
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
+// Description : Used to be constants, now all common stuff got dumped here
+//============================================================================
 
 #ifndef CONSTS_H_
 #define CONSTS_H_

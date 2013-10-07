@@ -1,9 +1,13 @@
-/*
- * sleep.h
- *
- *  Created on: 11 Aug 2013
- *      Author: Jan Gutter
- */
+//============================================================================
+// Name        : sleep.h
+// Author      : Jan Gutter
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
+// Description : Wrapper to implement Sleep for cross-platforminess
+//============================================================================
 
 #ifndef SLEEP_H_
 #define SLEEP_H_

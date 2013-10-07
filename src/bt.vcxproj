@@ -1,0 +1,183 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A3D6BCC1-8A71-40B3-B48F-11FE672CFC6D}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>bt</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(ProjectDir)include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir)include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="CalcEquilibrium.h" />
+    <ClInclude Include="consts.h" />
+    <ClInclude Include="include\fast_mutex.h" />
+    <ClInclude Include="include\platformstl\performance\performance_counter.hpp" />
+    <ClInclude Include="include\platformstl\performance\processtimes_counter.hpp" />
+    <ClInclude Include="include\platformstl\platformstl.h" />
+    <ClInclude Include="include\platformstl\platformstl.hpp" />
+    <ClInclude Include="include\SFMT-alti.h" />
+    <ClInclude Include="include\SFMT-common.h" />
+    <ClInclude Include="include\sfmt-params.h" />
+    <ClInclude Include="include\sfmt-params11213.h" />
+    <ClInclude Include="include\sfmt-params1279.h" />
+    <ClInclude Include="include\sfmt-params132049.h" />
+    <ClInclude Include="include\sfmt-params19937.h" />
+    <ClInclude Include="include\sfmt-params216091.h" />
+    <ClInclude Include="include\sfmt-params2281.h" />
+    <ClInclude Include="include\sfmt-params4253.h" />
+    <ClInclude Include="include\sfmt-params44497.h" />
+    <ClInclude Include="include\sfmt-params607.h" />
+    <ClInclude Include="include\sfmt-params86243.h" />
+    <ClInclude Include="include\SFMT-sse2.h" />
+    <ClInclude Include="include\sfmt.h" />
+    <ClInclude Include="include\soap\nsmap.h" />
+    <ClInclude Include="include\soap\soapChallengeServiceSoapBindingProxy.h" />
+    <ClInclude Include="include\soap\soapH.h" />
+    <ClInclude Include="include\soap\soapStub.h" />
+    <ClInclude Include="include\soap\stdsoap2.h" />
+    <ClInclude Include="include\statcounter.hpp" />
+    <ClInclude Include="include\stlsoft\internal\cccap\gcc.h" />
+    <ClInclude Include="include\stlsoft\internal\cccap\msvc.h" />
+    <ClInclude Include="include\stlsoft\internal\cccap\obsolete.h" />
+    <ClInclude Include="include\stlsoft\internal\head_version.h" />
+    <ClInclude Include="include\stlsoft\internal\lead_version.h" />
+    <ClInclude Include="include\stlsoft\stlsoft.h" />
+    <ClInclude Include="include\stlsoft\util\64bit_integers.hpp" />
+    <ClInclude Include="include\stlsoft\util\argument_proxies.hpp" />
+    <ClInclude Include="include\stlsoft\util\compiler_optimisation_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\constraints.hpp" />
+    <ClInclude Include="include\stlsoft\util\exception_string.hpp" />
+    <ClInclude Include="include\stlsoft\util\forward_enums.hpp" />
+    <ClInclude Include="include\stlsoft\util\inert.hpp" />
+    <ClInclude Include="include\stlsoft\util\integral_printf_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\limit_traits.h" />
+    <ClInclude Include="include\stlsoft\util\minmax.hpp" />
+    <ClInclude Include="include\stlsoft\util\must_init.hpp" />
+    <ClInclude Include="include\stlsoft\util\null.hpp" />
+    <ClInclude Include="include\stlsoft\util\nulldef.h" />
+    <ClInclude Include="include\stlsoft\util\operator_bool.hpp" />
+    <ClInclude Include="include\stlsoft\util\operator_bool_adaptor.hpp" />
+    <ClInclude Include="include\stlsoft\util\options_verifier.hpp" />
+    <ClInclude Include="include\stlsoft\util\pair.hpp" />
+    <ClInclude Include="include\stlsoft\util\placement_aid.hpp" />
+    <ClInclude Include="include\stlsoft\util\pod_veneer.hpp" />
+    <ClInclude Include="include\stlsoft\util\printf_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\remove_from_scope.hpp" />
+    <ClInclude Include="include\stlsoft\util\sign_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\size_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\static_initialisers.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\algorithm.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\dinkumware_iterator_traits.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\iterator_category_limiters.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\iterator_generators.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\iterator_helper.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\library_discriminator.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\stdio_overload_detectors.hpp" />
+    <ClInclude Include="include\stlsoft\util\std\utility.hpp" />
+    <ClInclude Include="include\stlsoft\util\std_swap.hpp" />
+    <ClInclude Include="include\stlsoft\util\trip_bool.hpp" />
+    <ClInclude Include="include\stlsoft\util\true_typedef.hpp" />
+    <ClInclude Include="include\stlsoft\util\unused_return_value_monitor.hpp" />
+    <ClInclude Include="include\stlsoft\util\zero.hpp" />
+    <ClInclude Include="include\stlsoft\util\zerodef.h" />
+    <ClInclude Include="include\tinythread.h" />
+    <ClInclude Include="include\unixstl\performance\performance_counter.hpp" />
+    <ClInclude Include="include\unixstl\performance\processtimes_counter.hpp" />
+    <ClInclude Include="include\unixstl\unixstl.h" />
+    <ClInclude Include="include\winstl\performance\highperformance_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\multimedia_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\performance_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\processtimes_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\systemtime_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\threadtimes_counter.hpp" />
+    <ClInclude Include="include\winstl\performance\tick_counter.hpp" />
+    <ClInclude Include="include\winstl\winstl.h" />
+    <ClInclude Include="MCTree.h" />
+    <ClInclude Include="NetworkCore.h" />
+    <ClInclude Include="PlayoutState.h" />
+    <ClInclude Include="sleep.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="battletanks.cpp" />
+    <ClCompile Include="CalcEquilibrium.cpp" />
+    <ClCompile Include="lib\SFMT.c" />
+    <ClCompile Include="lib\soap\soapC.cpp" />
+    <ClCompile Include="lib\soap\soapChallengeServiceSoapBindingProxy.cpp" />
+    <ClCompile Include="lib\soap\stdsoap2.cpp" />
+    <ClCompile Include="lib\tinythread.cpp" />
+    <ClCompile Include="MCTree.cpp" />
+    <ClCompile Include="NetworkCore.cpp" />
+    <ClCompile Include="PlayoutState.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -1,9 +1,13 @@
-/*
- * NetworkCore.h
- *
- *  Created on: 09 Aug 2013
- *      Author: Jan Gutter
- */
+//============================================================================
+// Name        : NetworkCore.h
+// Author      : Jan Gutter
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
+// Description : Network Core interfaces
+//============================================================================
 
 #ifndef NETWORKCORE_H_
 #define NETWORKCORE_H_

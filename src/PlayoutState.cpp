@@ -1,9 +1,13 @@
-/*
- * PlayoutState.cpp
- *
- *  Created on: 29 Jul 2013
- *      Author: Jan Gutter
- */
+//============================================================================
+// Name        : PlayoutState.cpp
+// Author      : Jan Gutter
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
+// Description : Simulates a game state
+//============================================================================
 
 #include <vector>
 #include <utility>
@@ -400,7 +404,7 @@ void PlayoutState::checkCollisions()
 	}
 	//Erase tagged tanks
 	for (i = 0; i < 4; i++) {
-		if (tank[i].tag || !tank[i].active) {
+		if (tank[i].tag) {
 			drawTank(i, B_EMPTY);
 			tank[i].active = 0;
 		}

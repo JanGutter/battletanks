@@ -1,8 +1,11 @@
 //============================================================================
 // Name        : battletanks.cpp
 // Author      : Jan Gutter
-// Version     :
-// Copyright   : Copyright (C) 2013 Jan Gutter, All Rights Reserved.
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
 // Description : Battletanks
 //============================================================================
 

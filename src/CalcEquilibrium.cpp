@@ -1,9 +1,13 @@
-/*
- * CalcEquilibrium.cpp
- *
- *  Created on: 29 Jul 2013
- *      Author: Jan Gutter
- */
+//============================================================================
+// Name        : CalcEquilibrium.cpp
+// Author      : Jan Gutter
+// Copyright   : To the extent possible under law, Jan Gutter has waived all
+//             : copyright and related or neighboring rights to this work.
+//             : For more information, go to:
+//             : http://creativecommons.org/publicdomain/zero/1.0/
+//             : or consult the README and COPYING files
+// Description : Nash Equilibrium calculator (vestigial)
+//============================================================================
 
 #include "CalcEquilibrium.h"
 #include <stdlib.h>
